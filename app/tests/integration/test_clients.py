@@ -60,8 +60,8 @@ async def test_clients_isolated_between_companies(client):
 
 
 async def test_employee_without_permission_forbidden(client):
-    matricule, token = await _register_and_login_owner(client)
-    await client.post(
+    _, token = await _register_and_login_owner(client)
+    create_response = await client.post(
         "/api/v1/employees",
         json={
             "full_name": "Employé",
@@ -71,9 +71,10 @@ async def test_employee_without_permission_forbidden(client):
         },
         headers=_auth_headers(token),
     )
+    employee_matricule = create_response.json()["matricule"]
     login_response = await client.post(
         "/api/v1/auth/login",
-        json={"matricule": matricule, "phone": "+224896111111", "password": "EmployeePass123!"},
+        json={"matricule": employee_matricule, "password": "EmployeePass123!"},
     )
     employee_token = login_response.json()["access_token"]
 

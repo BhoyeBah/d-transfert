@@ -340,7 +340,7 @@ async def test_employee_permission_gating(client):
     collaboration_id = create_collab.json()["id"]
     await client.post(f"/api/v1/collaborations/{collaboration_id}/accept", headers=_auth_headers(token_b))
 
-    await client.post(
+    create_response = await client.post(
         "/api/v1/employees",
         json={
             "full_name": "Employé Sans Droit",
@@ -350,9 +350,10 @@ async def test_employee_permission_gating(client):
         },
         headers=_auth_headers(token_a),
     )
+    employee_matricule = create_response.json()["matricule"]
     login_response = await client.post(
         "/api/v1/auth/login",
-        json={"matricule": matricule_a, "phone": "+224881111111", "password": "EmployeePass123!"},
+        json={"matricule": employee_matricule, "password": "EmployeePass123!"},
     )
     employee_token = login_response.json()["access_token"]
 
