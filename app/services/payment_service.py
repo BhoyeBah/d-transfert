@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 from app.models.collaboration import Collaboration, CollaborationStatus
 from app.models.entry_allocation import EntryAllocation, EntryAllocationTargetType
+from app.models.notification import NotificationType
 from app.models.payment import Payment, PaymentStatus, PaymentStatusHistory
 from app.models.wallet_movement import MovementDirection
 from app.repositories import (
@@ -17,7 +18,7 @@ from app.repositories import (
     wallet_repository,
 )
 from app.schemas.payment import PaymentCreateRequest
-from app.services import client_service, entry_service, wallet_service
+from app.services import audit_service, client_service, entry_service, notification_service, wallet_service
 from app.utils.reference import generate_payment_reference
 
 REFERENCE_MAX_RETRIES = 5
@@ -186,6 +187,15 @@ async def create_payment(
     )
     session.add(history)
 
+    await notification_service.notify(
+        session,
+        _other_party(collaboration, company_id),
+        NotificationType.PAYMENT_PENDING,
+        f"Nouveau paiement {reference} à valider.",
+        link_type="payment",
+        link_id=payment.id,
+    )
+
     await session.commit()
     return payment
 
@@ -246,12 +256,15 @@ async def approve_payment(
         company_id=company_id,
     )
     session.add(history)
+    await audit_service.log_action(
+        session, company_id, approved_by_user_id, "payment.approve", "payment", payment.id
+    )
     await session.commit()
     return payment
 
 
 async def reject_payment(
-    session: AsyncSession, company_id: uuid.UUID, payment_id: uuid.UUID, reason: str
+    session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, payment_id: uuid.UUID, reason: str
 ) -> Payment:
     payment, collaboration = await _get_payment_for_party(session, company_id, payment_id)
 
@@ -285,6 +298,17 @@ async def reject_payment(
         reason=reason,
     )
     session.add(history)
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "payment.reject", "payment", payment.id, note=reason
+    )
+    await notification_service.notify(
+        session,
+        payment.company_id,
+        NotificationType.PAYMENT_REJECTED,
+        f"Votre paiement {payment.reference} a été rejeté : {reason}",
+        link_type="payment",
+        link_id=payment.id,
+    )
     await session.commit()
     return payment
 

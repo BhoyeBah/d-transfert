@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 from app.models.collaboration import Collaboration, CollaborationStatus
 from app.models.entry_allocation import EntryAllocation, EntryAllocationTargetType
+from app.models.notification import NotificationType
 from app.models.transfer import Transfer, TransferStatus, TransferStatusHistory
 from app.repositories import (
     collaboration_repository,
@@ -16,7 +17,7 @@ from app.repositories import (
     transfer_repository,
 )
 from app.schemas.transfer import TransferCreateRequest
-from app.services import client_service, entry_service
+from app.services import audit_service, client_service, entry_service, notification_service
 from app.utils.reference import generate_transfer_reference
 
 REFERENCE_MAX_RETRIES = 5
@@ -184,12 +185,25 @@ async def create_transfer(
     )
     session.add(history)
 
+    await notification_service.notify(
+        session,
+        _other_party(collaboration, company_id),
+        NotificationType.TRANSFER_PENDING,
+        f"Nouvel envoi {reference} à valider.",
+        link_type="transfer",
+        link_id=transfer.id,
+    )
+
     await session.commit()
     return transfer
 
 
 async def approve_transfer(
-    session: AsyncSession, company_id: uuid.UUID, transfer_id: uuid.UUID, proof_id: uuid.UUID | None
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    acted_by_user_id: uuid.UUID,
+    transfer_id: uuid.UUID,
+    proof_id: uuid.UUID | None,
 ) -> Transfer:
     transfer, collaboration = await _get_transfer_for_party(session, company_id, transfer_id)
 
@@ -222,12 +236,15 @@ async def approve_transfer(
         company_id=company_id,
     )
     session.add(history)
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "transfer.approve", "transfer", transfer.id
+    )
     await session.commit()
     return transfer
 
 
 async def reject_transfer(
-    session: AsyncSession, company_id: uuid.UUID, transfer_id: uuid.UUID, reason: str
+    session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, transfer_id: uuid.UUID, reason: str
 ) -> Transfer:
     transfer, collaboration = await _get_transfer_for_party(session, company_id, transfer_id)
 
@@ -261,6 +278,17 @@ async def reject_transfer(
         reason=reason,
     )
     session.add(history)
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "transfer.reject", "transfer", transfer.id, note=reason
+    )
+    await notification_service.notify(
+        session,
+        transfer.company_id,
+        NotificationType.TRANSFER_REJECTED,
+        f"Votre envoi {transfer.reference} a été rejeté : {reason}",
+        link_type="transfer",
+        link_id=transfer.id,
+    )
     await session.commit()
     return transfer
 

@@ -11,8 +11,10 @@ from app.models.collaboration import (
     CollaborationStatus,
     RateProposalStatus,
 )
+from app.models.notification import NotificationType
 from app.repositories import collaboration_repository, collaborator_balance_repository, company_repository
 from app.schemas.collaboration import CollaborationRequestCreate
+from app.services import audit_service, notification_service
 
 
 async def _get_owned_collaboration(
@@ -59,12 +61,23 @@ async def request_collaboration(
         note=payload.note,
     )
     session.add(proposal)
+
+    requester = await company_repository.get_by_id(session, company_id)
+    await notification_service.notify(
+        session,
+        target.id,
+        NotificationType.COLLABORATION_REQUEST,
+        f"Nouvelle demande de collaboration de {requester.name} ({requester.registration_code}).",
+        link_type="collaboration",
+        link_id=collaboration.id,
+    )
+
     await session.commit()
     return collaboration, proposal
 
 
 async def accept_collaboration(
-    session: AsyncSession, company_id: uuid.UUID, collaboration_id: uuid.UUID
+    session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, collaboration_id: uuid.UUID
 ) -> tuple[Collaboration, CollaborationRateHistory | None]:
     collaboration = await _get_owned_collaboration(session, company_id, collaboration_id)
 
@@ -81,12 +94,27 @@ async def accept_collaboration(
         collaboration.current_rate_id = proposal.id
 
     collaboration.status = CollaborationStatus.ACCEPTED
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "collaboration.accept", "collaboration", collaboration.id
+    )
+    await notification_service.notify(
+        session,
+        collaboration.initiator_company_id,
+        NotificationType.COLLABORATION_ACCEPTED,
+        "Votre demande de collaboration a été acceptée.",
+        link_type="collaboration",
+        link_id=collaboration.id,
+    )
     await session.commit()
     return collaboration, proposal
 
 
 async def reject_collaboration(
-    session: AsyncSession, company_id: uuid.UUID, collaboration_id: uuid.UUID, reason: str | None
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    acted_by_user_id: uuid.UUID,
+    collaboration_id: uuid.UUID,
+    reason: str | None,
 ) -> Collaboration:
     collaboration = await _get_owned_collaboration(session, company_id, collaboration_id)
 
@@ -104,6 +132,18 @@ async def reject_collaboration(
             proposal.note = reason
 
     collaboration.status = CollaborationStatus.REJECTED
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "collaboration.reject", "collaboration", collaboration.id,
+        note=reason,
+    )
+    await notification_service.notify(
+        session,
+        collaboration.initiator_company_id,
+        NotificationType.COLLABORATION_REJECTED,
+        "Votre demande de collaboration a été rejetée.",
+        link_type="collaboration",
+        link_id=collaboration.id,
+    )
     await session.commit()
     return collaboration
 
@@ -153,7 +193,11 @@ async def _get_owned_proposal(
 
 
 async def accept_rate_proposal(
-    session: AsyncSession, company_id: uuid.UUID, collaboration_id: uuid.UUID, proposal_id: uuid.UUID
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    acted_by_user_id: uuid.UUID,
+    collaboration_id: uuid.UUID,
+    proposal_id: uuid.UUID,
 ) -> CollaborationRateHistory:
     collaboration, proposal = await _get_owned_proposal(session, company_id, collaboration_id, proposal_id)
 
@@ -166,6 +210,10 @@ async def accept_rate_proposal(
     proposal.decided_by_company_id = company_id
     proposal.decided_at = datetime.now(timezone.utc)
     collaboration.current_rate_id = proposal.id
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "collaboration.rate_accept", "collaboration_rate_history",
+        proposal.id, note=f"new_rate={proposal.new_rate}",
+    )
     await session.commit()
     return proposal
 

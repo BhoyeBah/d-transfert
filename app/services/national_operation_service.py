@@ -9,7 +9,7 @@ from app.models.national_operation_line import NationalOperationLine
 from app.models.wallet_movement import MovementDirection
 from app.repositories import national_operation_repository, wallet_repository
 from app.schemas.national_operation import NationalOperationCreateRequest
-from app.services import wallet_service
+from app.services import audit_service, wallet_service
 from app.utils.reference import generate_operation_reference
 
 REFERENCE_MAX_RETRIES = 5
@@ -102,6 +102,10 @@ async def create_operation(
         session.add(line_row)
         lines.append(line_row)
 
+    await audit_service.log_action(
+        session, company_id, created_by_id, "national_operation.create", "national_operation", operation.id,
+        note=f"type={operation_type.value}",
+    )
     await session.commit()
     return operation, lines
 
@@ -186,5 +190,9 @@ async def cancel_operation(
     operation.status = NationalOperationStatus.CANCELLED
     operation.cancelled_at = datetime.now(timezone.utc)
 
+    await audit_service.log_action(
+        session, company_id, created_by_id, "national_operation.cancel", "national_operation", operation.id,
+        note=f"reversal_id={reversal.id}",
+    )
     await session.commit()
     return reversal, reversal_lines

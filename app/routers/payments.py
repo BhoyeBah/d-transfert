@@ -98,7 +98,9 @@ async def reject_payment(
     payload: PaymentRejectRequest,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(_require_validate),
+    current_user: CurrentUser = Depends(_require_validate),
 ) -> PaymentResponse:
-    payment = await payment_service.reject_payment(db, company_id, payment_id, payload.reason)
+    payment = await payment_service.reject_payment(
+        db, company_id, current_user.id, payment_id, payload.reason
+    )
     return PaymentResponse.model_validate(payment, from_attributes=True)

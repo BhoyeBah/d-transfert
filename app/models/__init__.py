@@ -1,3 +1,4 @@
+from app.models.audit_log import AuditLog
 from app.models.base import Base
 from app.models.client import Client
 from app.models.client_balance_movement import ClientBalanceMovement
@@ -9,6 +10,7 @@ from app.models.entry_allocation import EntryAllocation, EntryAllocationTargetTy
 from app.models.entry_line import EntryLine
 from app.models.national_operation import NationalOperation, NationalOperationStatus, NationalOperationType
 from app.models.national_operation_line import NationalOperationLine
+from app.models.notification import Notification, NotificationType
 from app.models.password_reset_otp import PasswordResetOTP
 from app.models.payment import Payment, PaymentStatus, PaymentStatusHistory
 from app.models.private_sending_rate import PrivateSendingRate
@@ -21,6 +23,7 @@ from app.models.wallet import Wallet, WalletStatus, WalletType
 from app.models.wallet_movement import MovementDirection, WalletMovement
 
 __all__ = [
+    "AuditLog",
     "Base",
     "Client",
     "ClientBalanceMovement",
@@ -40,6 +43,8 @@ __all__ = [
     "NationalOperationStatus",
     "NationalOperationType",
     "NationalOperationLine",
+    "Notification",
+    "NotificationType",
     "PasswordResetOTP",
     "Payment",
     "PaymentStatus",

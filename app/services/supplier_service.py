@@ -9,7 +9,7 @@ from app.models.supplier_balance_movement import SupplierBalanceMovement, Suppli
 from app.models.wallet_movement import MovementDirection
 from app.repositories import supplier_repository, wallet_repository
 from app.schemas.supplier import SupplierCreateRequest, SupplierRebalanceRequest
-from app.services import wallet_service
+from app.services import audit_service, wallet_service
 from app.utils.reference import generate_supplier_movement_reference
 
 REFERENCE_MAX_RETRIES = 5
@@ -121,5 +121,9 @@ async def rebalance_supplier(
     )
     session.add(movement)
 
+    await audit_service.log_action(
+        session, company_id, created_by_id, "supplier.rebalance", "supplier", supplier.id,
+        note=f"type={payload.type.value} amount={amount}",
+    )
     await session.commit()
     return movement

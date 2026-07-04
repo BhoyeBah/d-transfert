@@ -84,9 +84,11 @@ async def approve_transfer(
     payload: TransferApproveRequest,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(_require_validate),
+    current_user: CurrentUser = Depends(_require_validate),
 ) -> TransferResponse:
-    transfer = await transfer_service.approve_transfer(db, company_id, transfer_id, payload.proof_id)
+    transfer = await transfer_service.approve_transfer(
+        db, company_id, current_user.id, transfer_id, payload.proof_id
+    )
     return TransferResponse.model_validate(transfer, from_attributes=True)
 
 
@@ -96,7 +98,9 @@ async def reject_transfer(
     payload: TransferRejectRequest,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(_require_validate),
+    current_user: CurrentUser = Depends(_require_validate),
 ) -> TransferResponse:
-    transfer = await transfer_service.reject_transfer(db, company_id, transfer_id, payload.reason)
+    transfer = await transfer_service.reject_transfer(
+        db, company_id, current_user.id, transfer_id, payload.reason
+    )
     return TransferResponse.model_validate(transfer, from_attributes=True)

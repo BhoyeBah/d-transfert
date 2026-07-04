@@ -75,9 +75,11 @@ async def accept_collaboration(
     collaboration_id: uuid.UUID,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(_require_manage),
+    current_user: CurrentUser = Depends(_require_manage),
 ) -> CollaborationResponse:
-    collaboration, rate = await collaboration_service.accept_collaboration(db, company_id, collaboration_id)
+    collaboration, rate = await collaboration_service.accept_collaboration(
+        db, company_id, current_user.id, collaboration_id
+    )
     return _to_response(collaboration, rate)
 
 
@@ -87,10 +89,10 @@ async def reject_collaboration(
     payload: CollaborationDecisionRequest,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(_require_manage),
+    current_user: CurrentUser = Depends(_require_manage),
 ) -> CollaborationResponse:
     collaboration = await collaboration_service.reject_collaboration(
-        db, company_id, collaboration_id, payload.reason
+        db, company_id, current_user.id, collaboration_id, payload.reason
     )
     return _to_response(collaboration, None)
 
@@ -122,10 +124,10 @@ async def accept_rate_proposal(
     proposal_id: uuid.UUID,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(_require_manage),
+    current_user: CurrentUser = Depends(_require_manage),
 ) -> CollaborationRateHistoryResponse:
     proposal = await collaboration_service.accept_rate_proposal(
-        db, company_id, collaboration_id, proposal_id
+        db, company_id, current_user.id, collaboration_id, proposal_id
     )
     return CollaborationRateHistoryResponse.model_validate(proposal, from_attributes=True)
 
