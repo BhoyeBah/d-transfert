@@ -21,7 +21,18 @@ from app.routers import (
     wallets,
 )
 
-app = FastAPI(title="D-Transfert API", version="0.1.0")
+app = FastAPI(
+    title="D-Transfert API",
+    version="0.1.0",
+    description=(
+        "API backend de D-Transfert : gestion multi-entreprises des wallets, opérations "
+        "nationales, collaborations inter-entreprises, envois internationaux, paiements "
+        "collaborateurs, clients, fournisseurs, dashboard et audit. Authentification par "
+        "matricule d'entreprise (Owner) ou matricule+téléphone (Employé), JWT access/refresh. "
+        "Isolation stricte par company_id dérivé du token — aucune requête ne doit référencer "
+        "une entreprise autre que la sienne."
+    ),
+)
 
 register_exception_handlers(app)
 
