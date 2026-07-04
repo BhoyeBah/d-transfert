@@ -66,9 +66,12 @@ async def _get_collaboration_for_party(
 
 
 async def _get_payment_for_party(
-    session: AsyncSession, company_id: uuid.UUID, payment_id: uuid.UUID
+    session: AsyncSession, company_id: uuid.UUID, payment_id: uuid.UUID, for_update: bool = False
 ) -> tuple[Payment, Collaboration]:
-    payment = await payment_repository.get_by_id(session, payment_id)
+    if for_update:
+        payment = await payment_repository.lock_by_id(session, payment_id)
+    else:
+        payment = await payment_repository.get_by_id(session, payment_id)
     if payment is None:
         raise NotFoundError("Paiement introuvable.")
     collaboration = await collaboration_repository.get_by_id(session, payment.collaboration_id)
@@ -98,6 +101,11 @@ async def create_payment(
     client_debt_amount = Decimal("0.00")
     if payload.entry_id is not None:
         entry, lines, allocations = await entry_service.get_entry(session, company_id, payload.entry_id)
+        if entry.merged_into_id is not None:
+            raise ConflictError(
+                f"L'entrée {entry.reference} a été fusionnée dans une autre entrée et ne peut plus être "
+                "utilisée directement."
+            )
         if entry.status not in entry_service.MERGEABLE_STATUSES:
             raise ConflictError(
                 f"L'entrée {entry.reference} ne peut pas être affectée (statut : {entry.status})."
@@ -207,7 +215,9 @@ async def approve_payment(
     payment_id: uuid.UUID,
     proof_id: uuid.UUID | None,
 ) -> Payment:
-    payment, collaboration = await _get_payment_for_party(session, company_id, payment_id)
+    payment, collaboration = await _get_payment_for_party(
+        session, company_id, payment_id, for_update=True
+    )
 
     if company_id != _other_party(collaboration, payment.company_id):
         raise PermissionDeniedError("Seul le collaborateur concerné peut approuver ce paiement.")
@@ -266,7 +276,9 @@ async def approve_payment(
 async def reject_payment(
     session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, payment_id: uuid.UUID, reason: str
 ) -> Payment:
-    payment, collaboration = await _get_payment_for_party(session, company_id, payment_id)
+    payment, collaboration = await _get_payment_for_party(
+        session, company_id, payment_id, for_update=True
+    )
 
     if company_id != _other_party(collaboration, payment.company_id):
         raise PermissionDeniedError("Seul le collaborateur concerné peut rejeter ce paiement.")

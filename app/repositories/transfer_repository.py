@@ -16,6 +16,11 @@ async def get_by_id(session: AsyncSession, transfer_id: uuid.UUID) -> Transfer |
     return await session.get(Transfer, transfer_id)
 
 
+async def lock_by_id(session: AsyncSession, transfer_id: uuid.UUID) -> Transfer | None:
+    result = await session.execute(select(Transfer).where(Transfer.id == transfer_id).with_for_update())
+    return result.scalar_one_or_none()
+
+
 async def list_for_company(session: AsyncSession, company_id: uuid.UUID) -> list[Transfer]:
     result = await session.execute(
         select(Transfer)

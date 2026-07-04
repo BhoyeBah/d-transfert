@@ -35,6 +35,15 @@ def _require_view_access(current_user: CurrentUser = Depends(get_current_user)) 
     )
 
 
+def _serialize(transfer, viewer_company_id: uuid.UUID) -> TransferResponse:
+    response = TransferResponse.model_validate(transfer, from_attributes=True)
+    if transfer.company_id != viewer_company_id:
+        # Le taux privé appartient exclusivement à l'entreprise qui a créé l'envoi ;
+        # il ne doit jamais être révélé au collaborateur qui consulte/valide l'envoi.
+        response.private_rate_used = None
+    return response
+
+
 @router.post("", response_model=TransferResponse, status_code=status.HTTP_201_CREATED)
 async def create_transfer(
     payload: TransferCreateRequest,
@@ -43,7 +52,7 @@ async def create_transfer(
     current_user: CurrentUser = Depends(_require_create),
 ) -> TransferResponse:
     transfer = await transfer_service.create_transfer(db, company_id, current_user.id, payload)
-    return TransferResponse.model_validate(transfer, from_attributes=True)
+    return _serialize(transfer, company_id)
 
 
 @router.get("", response_model=list[TransferResponse])
@@ -53,7 +62,7 @@ async def list_transfers(
     _current_user: CurrentUser = Depends(_require_view_access),
 ) -> list[TransferResponse]:
     transfers = await transfer_service.list_transfers(db, company_id)
-    return [TransferResponse.model_validate(transfer, from_attributes=True) for transfer in transfers]
+    return [_serialize(transfer, company_id) for transfer in transfers]
 
 
 @router.get("/{transfer_id}", response_model=TransferResponse)
@@ -64,7 +73,7 @@ async def get_transfer(
     _current_user: CurrentUser = Depends(_require_view_access),
 ) -> TransferResponse:
     transfer = await transfer_service.get_transfer(db, company_id, transfer_id)
-    return TransferResponse.model_validate(transfer, from_attributes=True)
+    return _serialize(transfer, company_id)
 
 
 @router.get("/{transfer_id}/status-history", response_model=list[TransferStatusHistoryResponse])
@@ -89,7 +98,7 @@ async def approve_transfer(
     transfer = await transfer_service.approve_transfer(
         db, company_id, current_user.id, transfer_id, payload.proof_id
     )
-    return TransferResponse.model_validate(transfer, from_attributes=True)
+    return _serialize(transfer, company_id)
 
 
 @router.post("/{transfer_id}/reject", response_model=TransferResponse)
@@ -103,4 +112,4 @@ async def reject_transfer(
     transfer = await transfer_service.reject_transfer(
         db, company_id, current_user.id, transfer_id, payload.reason
     )
-    return TransferResponse.model_validate(transfer, from_attributes=True)
+    return _serialize(transfer, company_id)

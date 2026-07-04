@@ -16,6 +16,11 @@ async def get_by_id(session: AsyncSession, payment_id: uuid.UUID) -> Payment | N
     return await session.get(Payment, payment_id)
 
 
+async def lock_by_id(session: AsyncSession, payment_id: uuid.UUID) -> Payment | None:
+    result = await session.execute(select(Payment).where(Payment.id == payment_id).with_for_update())
+    return result.scalar_one_or_none()
+
+
 async def list_for_company(session: AsyncSession, company_id: uuid.UUID) -> list[Payment]:
     result = await session.execute(
         select(Payment)

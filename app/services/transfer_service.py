@@ -65,9 +65,12 @@ async def _get_collaboration_for_party(
 
 
 async def _get_transfer_for_party(
-    session: AsyncSession, company_id: uuid.UUID, transfer_id: uuid.UUID
+    session: AsyncSession, company_id: uuid.UUID, transfer_id: uuid.UUID, for_update: bool = False
 ) -> tuple[Transfer, Collaboration]:
-    transfer = await transfer_repository.get_by_id(session, transfer_id)
+    if for_update:
+        transfer = await transfer_repository.lock_by_id(session, transfer_id)
+    else:
+        transfer = await transfer_repository.get_by_id(session, transfer_id)
     if transfer is None:
         raise NotFoundError("Envoi introuvable.")
     collaboration = await collaboration_repository.get_by_id(session, transfer.collaboration_id)
@@ -106,6 +109,11 @@ async def create_transfer(
     client_debt_amount = Decimal("0.00")
     if payload.entry_id is not None:
         entry, lines, allocations = await entry_service.get_entry(session, company_id, payload.entry_id)
+        if entry.merged_into_id is not None:
+            raise ConflictError(
+                f"L'entrée {entry.reference} a été fusionnée dans une autre entrée et ne peut plus être "
+                "utilisée directement."
+            )
         if entry.status not in entry_service.MERGEABLE_STATUSES:
             raise ConflictError(
                 f"L'entrée {entry.reference} ne peut pas être affectée (statut : {entry.status})."
@@ -205,7 +213,9 @@ async def approve_transfer(
     transfer_id: uuid.UUID,
     proof_id: uuid.UUID | None,
 ) -> Transfer:
-    transfer, collaboration = await _get_transfer_for_party(session, company_id, transfer_id)
+    transfer, collaboration = await _get_transfer_for_party(
+        session, company_id, transfer_id, for_update=True
+    )
 
     if company_id != _other_party(collaboration, transfer.company_id):
         raise PermissionDeniedError("Seul le collaborateur sollicité peut approuver cet envoi.")
@@ -246,7 +256,9 @@ async def approve_transfer(
 async def reject_transfer(
     session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, transfer_id: uuid.UUID, reason: str
 ) -> Transfer:
-    transfer, collaboration = await _get_transfer_for_party(session, company_id, transfer_id)
+    transfer, collaboration = await _get_transfer_for_party(
+        session, company_id, transfer_id, for_update=True
+    )
 
     if company_id != _other_party(collaboration, transfer.company_id):
         raise PermissionDeniedError("Seul le collaborateur sollicité peut rejeter cet envoi.")

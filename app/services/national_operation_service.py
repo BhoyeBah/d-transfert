@@ -41,13 +41,17 @@ async def create_operation(
     payload: NationalOperationCreateRequest,
 ) -> tuple[NationalOperation, list[NationalOperationLine]]:
     wallets = {}
-    for line in payload.lines:
-        if line.wallet_id not in wallets:
-            wallet = await wallet_repository.lock_by_id(session, line.wallet_id)
-            if wallet is None or wallet.company_id != company_id:
-                raise NotFoundError(f"Wallet introuvable : {line.wallet_id}.")
-            wallets[line.wallet_id] = wallet
+    # Verrouiller les wallets dans un ordre stable (trié par id) plutôt que dans l'ordre
+    # d'arrivée des lignes, pour éviter tout interblocage entre deux opérations concurrentes
+    # portant sur le même ensemble de wallets dans un ordre différent.
+    distinct_wallet_ids = sorted({line.wallet_id for line in payload.lines})
+    for wallet_id in distinct_wallet_ids:
+        wallet = await wallet_repository.lock_by_id(session, wallet_id)
+        if wallet is None or wallet.company_id != company_id:
+            raise NotFoundError(f"Wallet introuvable : {wallet_id}.")
+        wallets[wallet_id] = wallet
 
+    for line in payload.lines:
         wallet = wallets[line.wallet_id]
         if line.currency != wallet.currency:
             raise UnbalancedOperationError(

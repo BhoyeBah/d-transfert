@@ -303,6 +303,70 @@ async def test_reject_requires_reason(client):
     assert response.status_code == 422
 
 
+async def test_private_rate_used_hidden_from_counterparty(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+    await client.post(
+        "/api/v1/private-rates",
+        json={"collaboration_id": collaboration_id, "currency": "GNF", "rate": "17.5"},
+        headers=_auth_headers(token_a),
+    )
+
+    create_response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(token_a),
+    )
+    transfer_id = create_response.json()["id"]
+    # A (owner of the private rate) sees its own rate.
+    assert create_response.json()["private_rate_used"] == "17.500000"
+
+    view_from_a = await client.get(f"/api/v1/transfers/{transfer_id}", headers=_auth_headers(token_a))
+    assert view_from_a.json()["private_rate_used"] == "17.500000"
+
+    # B (the counterparty collaborator) must never see A's private commercial rate.
+    view_from_b = await client.get(f"/api/v1/transfers/{transfer_id}", headers=_auth_headers(token_b))
+    assert view_from_b.json()["private_rate_used"] is None
+
+    list_from_b = await client.get("/api/v1/transfers", headers=_auth_headers(token_b))
+    assert all(item["private_rate_used"] is None for item in list_from_b.json())
+
+    approve_response = await client.post(
+        f"/api/v1/transfers/{transfer_id}/approve", json={}, headers=_auth_headers(token_b)
+    )
+    assert approve_response.json()["private_rate_used"] is None
+
+
+async def test_approved_transfer_cannot_be_rejected(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+
+    create_response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(token_a),
+    )
+    transfer_id = create_response.json()["id"]
+    await client.post(f"/api/v1/transfers/{transfer_id}/approve", json={}, headers=_auth_headers(token_b))
+
+    reject_response = await client.post(
+        f"/api/v1/transfers/{transfer_id}/reject",
+        json={"reason": "Trop tard"},
+        headers=_auth_headers(token_b),
+    )
+    assert reject_response.status_code == 409
+
+
 async def test_third_party_company_cannot_access_transfer(client):
     collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
     create_response = await client.post(

@@ -68,13 +68,17 @@ async def create_entry(
     session: AsyncSession, company_id: uuid.UUID, created_by_id: uuid.UUID, payload: EntryCreateRequest
 ) -> tuple[Entry, list[EntryLine]]:
     wallets = {}
-    for line in payload.lines:
-        if line.wallet_id not in wallets:
-            wallet = await wallet_repository.lock_by_id(session, line.wallet_id)
-            if wallet is None or wallet.company_id != company_id:
-                raise NotFoundError(f"Wallet introuvable : {line.wallet_id}.")
-            wallets[line.wallet_id] = wallet
+    # Verrouiller les wallets dans un ordre stable (trié par id) plutôt que dans l'ordre
+    # d'arrivée des lignes, pour éviter tout interblocage entre deux opérations concurrentes
+    # portant sur le même ensemble de wallets dans un ordre différent.
+    distinct_wallet_ids = sorted({line.wallet_id for line in payload.lines})
+    for wallet_id in distinct_wallet_ids:
+        wallet = await wallet_repository.lock_by_id(session, wallet_id)
+        if wallet is None or wallet.company_id != company_id:
+            raise NotFoundError(f"Wallet introuvable : {wallet_id}.")
+        wallets[wallet_id] = wallet
 
+    for line in payload.lines:
         wallet = wallets[line.wallet_id]
         if line.currency != wallet.currency:
             raise UnbalancedOperationError(
@@ -149,7 +153,7 @@ async def merge_entries(
     source_entries: list[Entry] = []
     source_lines_by_entry: dict[uuid.UUID, list[EntryLine]] = {}
     for entry_id in payload.entry_ids:
-        entry, lines, _allocations = await _load_full(session, company_id, entry_id)
+        entry, lines, allocations = await _load_full(session, company_id, entry_id)
         if entry.status not in MERGEABLE_STATUSES:
             raise ConflictError(
                 f"L'entrée {entry.reference} ne peut pas être fusionnée (statut : {entry.status})."
@@ -157,7 +161,25 @@ async def merge_entries(
         if entry.merged_into_id is not None:
             raise ConflictError(f"L'entrée {entry.reference} a déjà été fusionnée.")
         source_entries.append(entry)
-        source_lines_by_entry[entry.id] = lines
+        # Seul le reliquat réellement disponible (montant des lignes moins les affectations déjà
+        # consommées) doit être reporté dans l'entrée fusionnée, sinon un montant déjà affecté à un
+        # envoi/paiement serait dupliqué (double dépense) lors de la fusion d'une entrée partiellement
+        # affectée. On distribue ce reliquat, devise par devise, sur les lignes d'origine (dans l'ordre)
+        # pour conserver une trace plausible des wallets d'origine.
+        remaining_by_currency = available_by_currency(lines, allocations)
+        remaining_lines: list[EntryLine] = []
+        for line in lines:
+            remaining_for_currency = remaining_by_currency.get(line.currency, Decimal("0"))
+            if remaining_for_currency <= 0:
+                continue
+            take = min(_quantize(line.amount), remaining_for_currency)
+            if take <= 0:
+                continue
+            remaining_lines.append(
+                EntryLine(wallet_id=line.wallet_id, amount=take, currency=line.currency)
+            )
+            remaining_by_currency[line.currency] = remaining_for_currency - take
+        source_lines_by_entry[entry.id] = remaining_lines
 
     aggregated: dict[tuple[uuid.UUID, str], Decimal] = defaultdict(Decimal)
     for lines in source_lines_by_entry.values():
@@ -195,8 +217,17 @@ async def merge_entries(
 async def cancel_entry(
     session: AsyncSession, company_id: uuid.UUID, created_by_id: uuid.UUID, entry_id: uuid.UUID
 ) -> tuple[Entry, list[EntryLine]]:
-    entry, lines, _allocations = await _load_full(session, company_id, entry_id)
+    entry, lines, allocations = await _load_full(session, company_id, entry_id)
 
+    if entry.merged_into_id is not None:
+        raise ConflictError(
+            f"L'entrée {entry.reference} a été fusionnée dans une autre entrée et ne peut plus être annulée directement."
+        )
+    if allocations:
+        raise ConflictError(
+            f"L'entrée {entry.reference} ne peut pas être annulée : elle est déjà affectée à un envoi "
+            "ou un paiement (même en attente). Rejetez ou annulez d'abord les opérations qui l'utilisent."
+        )
     if entry.status not in MERGEABLE_STATUSES:
         raise ConflictError(f"L'entrée {entry.reference} ne peut pas être annulée (statut : {entry.status}).")
 

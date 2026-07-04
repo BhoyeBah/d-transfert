@@ -213,6 +213,47 @@ async def test_only_other_party_can_approve_and_double_approval_rejected(client)
     assert double_approve.status_code == 409
 
 
+async def test_approved_payment_cannot_be_rejected(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+
+    create_response = await client.post(
+        "/api/v1/payments",
+        json={"collaboration_id": collaboration_id, "amount": "10000", "currency": "GNF"},
+        headers=_auth_headers(token_a),
+    )
+    payment_id = create_response.json()["id"]
+    await client.post(f"/api/v1/payments/{payment_id}/approve", json={}, headers=_auth_headers(token_b))
+
+    reject_response = await client.post(
+        f"/api/v1/payments/{payment_id}/reject",
+        json={"reason": "Trop tard"},
+        headers=_auth_headers(token_b),
+    )
+    assert reject_response.status_code == 409
+
+
+async def test_payment_requires_accepted_collaboration(client):
+    matricule_a, token_a = await _register_and_login_owner(
+        client, company_name="Entreprise A", company_phone="+224880000020"
+    )
+    matricule_b, token_b = await _register_and_login_owner(
+        client, company_name="Entreprise B", company_phone="+224880000021"
+    )
+    create_collab = await client.post(
+        "/api/v1/collaborations",
+        json={"target_matricule": matricule_b, "currency": "GNF", "initial_rate": "16"},
+        headers=_auth_headers(token_a),
+    )
+    collaboration_id = create_collab.json()["id"]
+
+    response = await client.post(
+        "/api/v1/payments",
+        json={"collaboration_id": collaboration_id, "amount": "1000", "currency": "GNF"},
+        headers=_auth_headers(token_a),
+    )
+    assert response.status_code == 409
+
+
 async def test_reject_payment_reverts_entry_and_leaves_balance_untouched(client):
     collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
     cash_id = await _create_wallet(client, token_b, "CASH")

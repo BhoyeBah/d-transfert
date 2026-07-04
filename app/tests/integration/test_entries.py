@@ -186,6 +186,172 @@ async def test_cancel_entry_reverses_wallet_balance(client):
     assert second_cancel.status_code == 409
 
 
+async def test_merge_partially_allocated_entry_carries_only_remaining_amount(client):
+    _, owner_token = await _register_and_login_owner(client)
+    cash_id = await _create_wallet(client, owner_token, "CASH")
+
+    other_token = (
+        await _register_and_login_owner(
+            client, company_name="Entreprise Collab Fusion", company_phone="+224850000030"
+        )
+    )[1]
+    collab_response = await client.post(
+        "/api/v1/collaborations",
+        json={
+            "target_matricule": (
+                await client.get("/api/v1/companies/me", headers=_auth_headers(owner_token))
+            ).json()["registration_code"],
+            "currency": "GNF",
+            "initial_rate": "1",
+        },
+        headers=_auth_headers(other_token),
+    )
+    collaboration_id = collab_response.json()["id"]
+    await client.post(
+        f"/api/v1/collaborations/{collaboration_id}/accept", headers=_auth_headers(owner_token)
+    )
+
+    entry_1 = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "10000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+    entry_2 = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "5000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+    entry_1_id = entry_1.json()["id"]
+    entry_2_id = entry_2.json()["id"]
+
+    # Consume 4000 of entry_1's 10000 via a transfer, leaving only 6000 available.
+    await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "entry_id": entry_1_id,
+            "amount": "4000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000001",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(owner_token),
+    )
+    entry_1_after = await client.get(f"/api/v1/entries/{entry_1_id}", headers=_auth_headers(owner_token))
+    assert entry_1_after.json()["status"] == "partially_allocated"
+    assert entry_1_after.json()["available_by_currency"] == {"GNF": "6000.00"}
+
+    merge_response = await client.post(
+        "/api/v1/entries/merge",
+        json={"entry_ids": [entry_1_id, entry_2_id]},
+        headers=_auth_headers(owner_token),
+    )
+    assert merge_response.status_code == 201
+    merged = merge_response.json()
+    # Only the remaining 6000 (not the original 10000) must be carried forward, otherwise the
+    # 4000 already allocated to the transfer would be double-spent via the merged entry.
+    assert merged["available_by_currency"] == {"GNF": "11000.00"}
+
+    # The source entry that was partially allocated and then merged away must no longer be
+    # directly usable to fund a new transfer/payment (its money now lives in the merged entry).
+    reuse_attempt = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "entry_id": entry_1_id,
+            "amount": "1000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000002",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(owner_token),
+    )
+    assert reuse_attempt.status_code == 409
+
+
+async def test_cancel_entry_with_live_allocation_rejected(client):
+    _, owner_token = await _register_and_login_owner(client)
+    cash_id = await _create_wallet(client, owner_token, "CASH")
+
+    other_token = (
+        await _register_and_login_owner(
+            client, company_name="Entreprise Collab Cancel", company_phone="+224850000031"
+        )
+    )[1]
+    collab_response = await client.post(
+        "/api/v1/collaborations",
+        json={
+            "target_matricule": (
+                await client.get("/api/v1/companies/me", headers=_auth_headers(owner_token))
+            ).json()["registration_code"],
+            "currency": "GNF",
+            "initial_rate": "1",
+        },
+        headers=_auth_headers(other_token),
+    )
+    collaboration_id = collab_response.json()["id"]
+    await client.post(
+        f"/api/v1/collaborations/{collaboration_id}/accept", headers=_auth_headers(owner_token)
+    )
+
+    entry = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "10000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+    entry_id = entry.json()["id"]
+
+    await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "entry_id": entry_id,
+            "amount": "4000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000003",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(owner_token),
+    )
+
+    cancel_response = await client.post(
+        f"/api/v1/entries/{entry_id}/cancel", headers=_auth_headers(owner_token)
+    )
+    assert cancel_response.status_code == 409
+
+    cash_wallet = await client.get(f"/api/v1/wallets/{cash_id}", headers=_auth_headers(owner_token))
+    assert cash_wallet.json()["balance"] == "10000.00"
+
+
+async def test_cancel_merged_entry_rejected(client):
+    _, owner_token = await _register_and_login_owner(client)
+    cash_id = await _create_wallet(client, owner_token, "CASH")
+
+    entry_1 = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "10000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+    entry_2 = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "5000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+    entry_1_id = entry_1.json()["id"]
+    entry_2_id = entry_2.json()["id"]
+
+    await client.post(
+        "/api/v1/entries/merge",
+        json={"entry_ids": [entry_1_id, entry_2_id]},
+        headers=_auth_headers(owner_token),
+    )
+
+    cancel_response = await client.post(
+        f"/api/v1/entries/{entry_1_id}/cancel", headers=_auth_headers(owner_token)
+    )
+    assert cancel_response.status_code == 409
+
+
 async def test_employee_without_permission_forbidden(client):
     matricule, owner_token = await _register_and_login_owner(client)
     await client.post(

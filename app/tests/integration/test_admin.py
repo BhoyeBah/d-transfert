@@ -71,3 +71,16 @@ async def test_super_admin_can_list_and_suspend_companies(client, db_session):
         json={"matricule": companies[0]["registration_code"], "password": "SuperSecret123!"},
     )
     assert login_after_suspend.status_code == 401
+
+
+async def test_super_admin_can_view_platform_wide_audit_logs(client, db_session):
+    _, owner_token = await _register_and_login_owner(client)
+    admin_token = await _create_super_admin_token(db_session)
+
+    own_logs = await client.get("/api/v1/admin/audit-logs", headers=_auth_headers(admin_token))
+    assert own_logs.status_code == 200
+    actions = {log["action"] for log in own_logs.json()}
+    assert "login" in actions
+
+    forbidden = await client.get("/api/v1/admin/audit-logs", headers=_auth_headers(owner_token))
+    assert forbidden.status_code == 403
