@@ -9,6 +9,7 @@ from app.routers import (
     entries,
     national_operations,
     private_rates,
+    transfers,
     wallets,
 )
 
@@ -24,6 +25,7 @@ app.include_router(national_operations.router)
 app.include_router(collaborations.router)
 app.include_router(private_rates.router)
 app.include_router(entries.router)
+app.include_router(transfers.router)
 
 
 @app.get("/health")

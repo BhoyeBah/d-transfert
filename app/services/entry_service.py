@@ -44,6 +44,15 @@ def available_by_currency(
     return dict(totals)
 
 
+def recompute_status(lines: list[EntryLine], allocations: list[EntryAllocation]) -> EntryStatus:
+    if not allocations:
+        return EntryStatus.UNALLOCATED
+    remaining = available_by_currency(lines, allocations)
+    if all(amount <= 0 for amount in remaining.values()):
+        return EntryStatus.CONSUMED
+    return EntryStatus.PARTIALLY_ALLOCATED
+
+
 async def _load_full(
     session: AsyncSession, company_id: uuid.UUID, entry_id: uuid.UUID
 ) -> tuple[Entry, list[EntryLine], list[EntryAllocation]]:

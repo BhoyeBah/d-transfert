@@ -15,6 +15,7 @@ from app.schemas.collaboration import (
     RateProposalCreateRequest,
     RateProposalDecisionRequest,
 )
+from app.schemas.transfer import CollaboratorBalanceResponse
 from app.services import collaboration_service
 
 router = APIRouter(prefix="/api/v1/collaborations", tags=["collaborations"])
@@ -156,3 +157,17 @@ async def get_rate_history(
 ) -> list[CollaborationRateHistoryResponse]:
     history = await collaboration_service.get_rate_history(db, company_id, collaboration_id)
     return [CollaborationRateHistoryResponse.model_validate(item, from_attributes=True) for item in history]
+
+
+@router.get("/{collaboration_id}/balance", response_model=CollaboratorBalanceResponse)
+async def get_balance(
+    collaboration_id: uuid.UUID,
+    company_id: uuid.UUID = Depends(get_company_scope),
+    db: AsyncSession = Depends(get_db),
+    _current_user: CurrentUser = Depends(_require_manage),
+) -> CollaboratorBalanceResponse:
+    collaboration, _rate = await collaboration_service.get_collaboration(db, company_id, collaboration_id)
+    balance = await collaboration_service.get_balance(db, company_id, collaboration_id)
+    return CollaboratorBalanceResponse(
+        collaboration_id=collaboration_id, currency=collaboration.currency, balance=balance
+    )

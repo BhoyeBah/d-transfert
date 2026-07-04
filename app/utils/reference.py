@@ -19,3 +19,7 @@ def generate_operation_reference() -> str:
 
 def generate_entry_reference() -> str:
     return generate_reference("EN")
+
+
+def generate_transfer_reference() -> str:
+    return generate_reference("TR")

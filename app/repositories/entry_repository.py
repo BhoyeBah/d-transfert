@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entry import Entry
-from app.models.entry_allocation import EntryAllocation
+from app.models.entry_allocation import EntryAllocation, EntryAllocationTargetType
 from app.models.entry_line import EntryLine
 
 
@@ -43,3 +43,14 @@ async def get_allocations(session: AsyncSession, entry_id: uuid.UUID) -> list[En
         .order_by(EntryAllocation.created_at)
     )
     return list(result.scalars().all())
+
+
+async def get_allocation_by_target(
+    session: AsyncSession, target_type: EntryAllocationTargetType, target_id: uuid.UUID
+) -> EntryAllocation | None:
+    result = await session.execute(
+        select(EntryAllocation).where(
+            EntryAllocation.target_type == target_type, EntryAllocation.target_id == target_id
+        )
+    )
+    return result.scalar_one_or_none()

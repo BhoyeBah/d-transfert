@@ -11,7 +11,7 @@ from app.models.collaboration import (
     CollaborationStatus,
     RateProposalStatus,
 )
-from app.repositories import collaboration_repository, company_repository
+from app.repositories import collaboration_repository, collaborator_balance_repository, company_repository
 from app.schemas.collaboration import CollaborationRequestCreate
 
 
@@ -220,3 +220,10 @@ async def get_rate_history(
 ) -> list[CollaborationRateHistory]:
     await _get_owned_collaboration(session, company_id, collaboration_id)
     return await collaboration_repository.list_rate_history(session, collaboration_id)
+
+
+async def get_balance(session: AsyncSession, company_id: uuid.UUID, collaboration_id: uuid.UUID) -> Decimal:
+    await _get_owned_collaboration(session, company_id, collaboration_id)
+    return await collaborator_balance_repository.get_balance_for_company(
+        session, collaboration_id, company_id
+    )
