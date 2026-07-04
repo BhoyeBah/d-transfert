@@ -30,6 +30,7 @@ def _auth_headers(token: str) -> dict[str, str]:
 async def _create_super_admin_token(db_session) -> str:
     super_admin = User(
         company_id=None,
+        matricule=f"SA-{uuid.uuid4().hex[:10]}",
         full_name="Super Admin",
         phone=f"+000{uuid.uuid4().int % 100000000:08d}",
         password_hash=hash_password("SuperAdminPass123!"),
