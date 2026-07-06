@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CompanyStatusActions } from "../company-status-actions";
+import { CompanyDetailsForm } from "./company-details-form";
 import { SubscriptionForm } from "./subscription-form";
 import { UserStatusActions } from "./user-status-actions";
 
@@ -66,6 +67,15 @@ export default async function AdminCompanyDetailPage({
           value={`${company.national_operations_count} / ${company.transfers_count} / ${company.payments_count}`}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Informations de l&apos;entreprise</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CompanyDetailsForm company={company} />
+        </CardContent>
+      </Card>
 
       {balanceEntries.length > 0 && (
         <Card>

@@ -28,6 +28,29 @@ export async function setAdminCompanyStatusAction(
   return { ok: true, data: undefined };
 }
 
+export async function updateAdminCompanyAction(
+  companyId: string,
+  payload: {
+    name: string;
+    address: string | null;
+    phone: string;
+    default_currency: string;
+  }
+): Promise<MutationResult> {
+  try {
+    await serverFetch(`/api/v1/admin/companies/${companyId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath("/admin/companies");
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, data: undefined };
+}
+
 export async function setAdminUserStatusAction(
   userId: string,
   companyId: string | null,
