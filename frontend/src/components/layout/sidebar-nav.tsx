@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   Landmark,
   ScrollText,
-  ShieldAlert,
   ShieldCheck,
   Truck,
   Users,
@@ -33,7 +32,6 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   truck: Truck,
   "file-clock": FileClock,
   "shield-check": ShieldCheck,
-  "shield-alert": ShieldAlert,
 };
 
 export function SidebarNav({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {

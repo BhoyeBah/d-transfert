@@ -9,7 +9,6 @@ export function AppShell({
   matricule,
   roleLabel,
   unreadNotifications,
-  showNotifications = true,
   children,
 }: {
   navItems: NavItem[];
@@ -18,7 +17,6 @@ export function AppShell({
   matricule: string;
   roleLabel: string;
   unreadNotifications: number;
-  showNotifications?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -39,7 +37,6 @@ export function AppShell({
           matricule={matricule}
           roleLabel={roleLabel}
           unreadNotifications={unreadNotifications}
-          showNotifications={showNotifications}
           navItems={navItems}
         />
         <main className="flex-1 bg-muted/30 p-4 sm:p-6">{children}</main>

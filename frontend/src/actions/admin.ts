@@ -21,5 +21,6 @@ export async function setAdminCompanyStatusAction(
     return { ok: false, message: "Impossible de contacter le serveur." };
   }
   revalidatePath("/admin");
+  revalidatePath("/admin/companies");
   return { ok: true, data: undefined };
 }

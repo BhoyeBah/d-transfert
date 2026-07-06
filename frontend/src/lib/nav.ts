@@ -11,8 +11,7 @@ export type NavIconName =
   | "users"
   | "truck"
   | "file-clock"
-  | "shield-check"
-  | "shield-alert";
+  | "shield-check";
 
 export type NavItem = {
   href: string;
@@ -73,19 +72,5 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Employés",
     icon: "shield-check",
     requiredPermission: PermissionCode.EMPLOYEE_MANAGE,
-  },
-];
-
-/**
- * The Super Admin platform role has no company_id, so every company-scoped
- * endpoint (dashboard, wallets, entries, ...) rejects it. It only ever sees
- * this single platform-wide section.
- */
-export const SUPER_ADMIN_NAV_ITEMS: NavItem[] = [
-  {
-    href: "/admin",
-    label: "Administration plateforme",
-    icon: "shield-alert",
-    requiredPermission: null,
   },
 ];
