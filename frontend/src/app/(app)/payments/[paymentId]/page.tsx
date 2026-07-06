@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ClockIcon } from "lucide-react";
 
+import { uploadPaymentProofAction } from "@/actions/payments";
 import { getMe } from "@/lib/data/me";
-import { getPayment, getPaymentStatusHistory } from "@/lib/data/payments";
+import { getPayment, getPaymentStatusHistory, listPaymentProofs } from "@/lib/data/payments";
 import { formatDate, formatMoney } from "@/lib/format";
 import { EmptyState } from "@/components/empty-state";
+import { ProofsCard } from "@/components/proofs-card";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,14 +28,17 @@ export default async function PaymentDetailPage({
   params: Promise<{ paymentId: string }>;
 }) {
   const { paymentId } = await params;
-  const [payment, history, me] = await Promise.all([
+  const [payment, history, proofs, me] = await Promise.all([
     getPayment(paymentId),
     getPaymentStatusHistory(paymentId),
+    listPaymentProofs(paymentId),
     getMe(),
   ]);
 
   const isCounterparty = payment.company_id !== me.company_id;
-  const canDecide = payment.status === "pending" && isCounterparty;
+  const isPending = payment.status === "pending";
+  const canDecide = isPending && isCounterparty;
+  const awaitingOtherParty = isPending && !isCounterparty;
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,6 +58,12 @@ export default async function PaymentDetailPage({
           <div className="flex items-center gap-2">
             <StatusBadge status={payment.status} />
             {canDecide && <PaymentDecisionButtons paymentId={payment.id} />}
+            {awaitingOtherParty && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ClockIcon className="size-3.5" />
+                En attente de validation par l&apos;autre partie
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -125,6 +136,12 @@ export default async function PaymentDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <ProofsCard
+        proofs={proofs}
+        fileHrefBase={`/api/payments/${payment.id}/proofs`}
+        uploadAction={uploadPaymentProofAction.bind(null, payment.id)}
+      />
     </div>
   );
 }

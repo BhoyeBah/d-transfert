@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { serverFetch } from "@/lib/api";
+import { serverFetch, serverFetchMultipart } from "@/lib/api";
 import { ApiError } from "@/lib/api-error";
 import type { MutationResult } from "@/lib/mutation-result";
 import { createTransferSchema, type CreateTransferFormValues } from "@/lib/validation/transfers";
-import type { Transfer } from "@/types/api";
+import type { Proof, Transfer } from "@/types/api";
 
 export async function createTransferAction(
   payload: CreateTransferFormValues
@@ -52,6 +52,24 @@ export async function approveTransferAction(transferId: string): Promise<Mutatio
   revalidatePath("/transfers");
   revalidatePath(`/transfers/${transferId}`);
   return { ok: true, data: undefined };
+}
+
+export async function uploadTransferProofAction(
+  transferId: string,
+  formData: FormData
+): Promise<MutationResult<Proof>> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "Sélectionnez un fichier à joindre." };
+  }
+  try {
+    const proof = await serverFetchMultipart<Proof>(`/api/v1/transfers/${transferId}/proofs`, formData);
+    revalidatePath(`/transfers/${transferId}`);
+    return { ok: true, data: proof };
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
 }
 
 export async function rejectTransferAction(transferId: string, reason: string): Promise<MutationResult> {

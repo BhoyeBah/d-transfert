@@ -55,3 +55,34 @@ export async function serverFetch<T = unknown>(
 
   return payload as T;
 }
+
+/**
+ * Same as serverFetch but posts a multipart/form-data body (file uploads).
+ * The Content-Type (with boundary) is left for fetch to set automatically —
+ * setting it manually on a FormData body breaks the multipart boundary.
+ */
+export async function serverFetchMultipart<T = unknown>(path: string, formData: FormData): Promise<T> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new UnauthenticatedError();
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+    cache: "no-store",
+  });
+
+  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const payload = isJson ? await response.json().catch(() => null) : await response.text();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new UnauthenticatedError();
+    }
+    throw new ApiError(response.status, extractErrorMessage(payload, "Une erreur est survenue."));
+  }
+
+  return payload as T;
+}

@@ -234,6 +234,21 @@ export type TransferStatusHistoryEntry = {
   created_at: string;
 };
 
+// --- Proofs ---
+
+export type Proof = {
+  id: string;
+  transfer_id: string | null;
+  payment_id: string | null;
+  company_id: string;
+  uploaded_by_id: string;
+  file_name: string;
+  content_type: string;
+  file_size: number;
+  note: string | null;
+  created_at: string;
+};
+
 // --- Payments ---
 
 export type PaymentStatus = "pending" | "approved" | "rejected" | "cancelled";

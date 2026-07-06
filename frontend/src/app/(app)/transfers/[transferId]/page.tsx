@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ClockIcon } from "lucide-react";
 
+import { uploadTransferProofAction } from "@/actions/transfers";
 import { getMe } from "@/lib/data/me";
-import { getTransfer, getTransferStatusHistory } from "@/lib/data/transfers";
+import { getTransfer, getTransferStatusHistory, listTransferProofs } from "@/lib/data/transfers";
 import { formatDate, formatMoney } from "@/lib/format";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { EmptyState } from "@/components/empty-state";
+import { ProofsCard } from "@/components/proofs-card";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -27,14 +29,17 @@ export default async function TransferDetailPage({
   params: Promise<{ transferId: string }>;
 }) {
   const { transferId } = await params;
-  const [transfer, history, me] = await Promise.all([
+  const [transfer, history, proofs, me] = await Promise.all([
     getTransfer(transferId),
     getTransferStatusHistory(transferId),
+    listTransferProofs(transferId),
     getMe(),
   ]);
 
   const isCounterparty = transfer.company_id !== me.company_id;
-  const canDecide = transfer.status === "pending" && isCounterparty;
+  const isPending = transfer.status === "pending";
+  const canDecide = isPending && isCounterparty;
+  const awaitingOtherParty = isPending && !isCounterparty;
   const canSeePrivateRate = transfer.company_id === me.company_id;
 
   return (
@@ -57,6 +62,12 @@ export default async function TransferDetailPage({
           <div className="flex items-center gap-2">
             <StatusBadge status={transfer.status} />
             {canDecide && <TransferDecisionButtons transferId={transfer.id} />}
+            {awaitingOtherParty && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ClockIcon className="size-3.5" />
+                En attente de validation par l&apos;autre partie
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -143,6 +154,12 @@ export default async function TransferDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <ProofsCard
+        proofs={proofs}
+        fileHrefBase={`/api/transfers/${transfer.id}/proofs`}
+        uploadAction={uploadTransferProofAction.bind(null, transfer.id)}
+      />
     </div>
   );
 }
