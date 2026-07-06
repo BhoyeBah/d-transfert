@@ -1,11 +1,61 @@
 import uuid
+from collections import defaultdict
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.models.company import Company, CompanyStatus
-from app.repositories import company_repository
+from app.models.subscription import Subscription
+from app.models.user import User
+from app.repositories import (
+    company_repository,
+    entry_repository,
+    national_operation_repository,
+    payment_repository,
+    platform_setting_repository,
+    subscription_repository,
+    system_log_repository,
+    transfer_repository,
+    user_repository,
+    wallet_repository,
+)
+from app.schemas.admin import (
+    AdminCompanyDetailResponse,
+    AdminPlatformStatsResponse,
+    AdminUserResponse,
+    PlatformSettingsResponse,
+    PlatformSettingsUpdateRequest,
+    SubscriptionResponse,
+    SubscriptionUpdateRequest,
+    SystemLogResponse,
+)
 from app.services import audit_service
+
+
+def _user_to_response(user: User) -> AdminUserResponse:
+    return AdminUserResponse(
+        id=user.id,
+        company_id=user.company_id,
+        matricule=user.matricule,
+        full_name=user.full_name,
+        phone=user.phone,
+        is_owner=user.is_owner,
+        is_super_admin=user.is_super_admin,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
+
+
+def _subscription_to_response(subscription: Subscription) -> SubscriptionResponse:
+    return SubscriptionResponse(
+        company_id=subscription.company_id,
+        plan=subscription.plan,
+        status=subscription.status,
+        price=subscription.price,
+        currency=subscription.currency,
+        renews_at=subscription.renews_at,
+    )
 
 
 async def list_companies(session: AsyncSession) -> list[Company]:
@@ -26,3 +76,193 @@ async def set_company_status(
     )
     await session.commit()
     return company
+
+
+async def get_company_detail(session: AsyncSession, company_id: uuid.UUID) -> AdminCompanyDetailResponse:
+    company = await company_repository.get_by_id(session, company_id)
+    if company is None:
+        raise NotFoundError("Entreprise introuvable.")
+
+    users = await user_repository.list_all_by_company(session, company_id)
+    wallets = await wallet_repository.list_by_company(session, company_id)
+    balances: dict[str, Decimal] = defaultdict(Decimal)
+    for wallet in wallets:
+        balances[wallet.currency] += wallet.balance
+    entries = await entry_repository.list_by_company(session, company_id)
+    national_operations = await national_operation_repository.list_by_company(session, company_id)
+    transfers = await transfer_repository.list_for_company(session, company_id)
+    payments = await payment_repository.list_for_company(session, company_id)
+
+    return AdminCompanyDetailResponse(
+        id=company.id,
+        name=company.name,
+        registration_code=company.registration_code,
+        address=company.address,
+        phone=company.phone,
+        default_currency=company.default_currency,
+        status=company.status,
+        created_at=company.created_at,
+        users_count=len(users),
+        wallets_count=len(wallets),
+        wallets_balance_by_currency=dict(balances),
+        entries_count=len(entries),
+        national_operations_count=len(national_operations),
+        transfers_count=len(transfers),
+        payments_count=len(payments),
+    )
+
+
+async def list_company_users(session: AsyncSession, company_id: uuid.UUID) -> list[AdminUserResponse]:
+    company = await company_repository.get_by_id(session, company_id)
+    if company is None:
+        raise NotFoundError("Entreprise introuvable.")
+
+    users = await user_repository.list_all_by_company(session, company_id)
+    return [_user_to_response(user) for user in users]
+
+
+async def set_user_status(
+    session: AsyncSession, acted_by_user_id: uuid.UUID, user_id: uuid.UUID, is_active: bool
+) -> AdminUserResponse:
+    user = await user_repository.get_by_id(session, user_id)
+    if user is None:
+        raise NotFoundError("Utilisateur introuvable.")
+
+    user.is_active = is_active
+    await audit_service.log_action(
+        session, user.company_id, acted_by_user_id, "admin.user_status_change", "user", user.id,
+        note=f"is_active={is_active}",
+    )
+    await session.commit()
+    return _user_to_response(user)
+
+
+async def get_platform_stats(session: AsyncSession) -> AdminPlatformStatsResponse:
+    status_counts = await company_repository.count_by_status(session)
+    users_total = await user_repository.count_all(session)
+    wallets_total = await wallet_repository.count_all(session)
+    entries_total = await entry_repository.count_all(session)
+    national_operations_total = await national_operation_repository.count_all(session)
+    transfers_total = await transfer_repository.count_all(session)
+    payments_total = await payment_repository.count_all(session)
+
+    volume_by_currency: dict[str, Decimal] = defaultdict(Decimal)
+    for currency, amount in (await transfer_repository.sum_amount_by_currency(session)).items():
+        volume_by_currency[currency] += amount
+    for currency, amount in (await payment_repository.sum_amount_by_currency(session)).items():
+        volume_by_currency[currency] += amount
+
+    recent_logs = await system_log_repository.list_recent(session, limit=500)
+
+    return AdminPlatformStatsResponse(
+        companies_total=sum(status_counts.values()),
+        companies_active=status_counts.get(CompanyStatus.ACTIVE, 0),
+        companies_pending=status_counts.get(CompanyStatus.PENDING, 0),
+        companies_suspended=status_counts.get(CompanyStatus.SUSPENDED, 0),
+        users_total=users_total,
+        wallets_total=wallets_total,
+        entries_total=entries_total,
+        national_operations_total=national_operations_total,
+        transfers_total=transfers_total,
+        payments_total=payments_total,
+        transactions_total=entries_total + national_operations_total + transfers_total + payments_total,
+        volume_by_currency=dict(volume_by_currency),
+        system_logs_recent_count=len(recent_logs),
+    )
+
+
+async def list_system_logs(session: AsyncSession) -> list[SystemLogResponse]:
+    logs = await system_log_repository.list_recent(session, limit=500)
+    return [
+        SystemLogResponse(
+            id=log.id,
+            level=log.level,
+            source=log.source,
+            message=log.message,
+            company_id=log.company_id,
+            user_id=log.user_id,
+            created_at=log.created_at,
+        )
+        for log in logs
+    ]
+
+
+async def get_settings(session: AsyncSession) -> PlatformSettingsResponse:
+    setting = await platform_setting_repository.get(session)
+    if setting is None:
+        setting = await platform_setting_repository.create_default(session)
+        await session.commit()
+    return PlatformSettingsResponse(
+        supported_currencies=setting.supported_currencies,
+        max_transaction_amount=setting.max_transaction_amount,
+        maintenance_mode=setting.maintenance_mode,
+    )
+
+
+async def update_settings(
+    session: AsyncSession, acted_by_user_id: uuid.UUID, payload: PlatformSettingsUpdateRequest
+) -> PlatformSettingsResponse:
+    setting = await platform_setting_repository.get(session)
+    if setting is None:
+        setting = await platform_setting_repository.create_default(session)
+
+    if payload.supported_currencies is not None:
+        setting.supported_currencies = payload.supported_currencies
+    if payload.max_transaction_amount is not None:
+        setting.max_transaction_amount = payload.max_transaction_amount
+    if payload.maintenance_mode is not None:
+        setting.maintenance_mode = payload.maintenance_mode
+
+    await audit_service.log_action(
+        session, None, acted_by_user_id, "admin.settings_update", "platform_setting", setting.id
+    )
+    await session.commit()
+    return PlatformSettingsResponse(
+        supported_currencies=setting.supported_currencies,
+        max_transaction_amount=setting.max_transaction_amount,
+        maintenance_mode=setting.maintenance_mode,
+    )
+
+
+async def get_subscription(session: AsyncSession, company_id: uuid.UUID) -> SubscriptionResponse:
+    company = await company_repository.get_by_id(session, company_id)
+    if company is None:
+        raise NotFoundError("Entreprise introuvable.")
+
+    subscription = await subscription_repository.get_by_company(session, company_id)
+    if subscription is None:
+        subscription = await subscription_repository.create_default(session, company_id)
+        await session.commit()
+    return _subscription_to_response(subscription)
+
+
+async def update_subscription(
+    session: AsyncSession,
+    acted_by_user_id: uuid.UUID,
+    company_id: uuid.UUID,
+    payload: SubscriptionUpdateRequest,
+) -> SubscriptionResponse:
+    company = await company_repository.get_by_id(session, company_id)
+    if company is None:
+        raise NotFoundError("Entreprise introuvable.")
+
+    subscription = await subscription_repository.get_by_company(session, company_id)
+    if subscription is None:
+        subscription = await subscription_repository.create_default(session, company_id)
+
+    if payload.plan is not None:
+        subscription.plan = payload.plan
+    if payload.status is not None:
+        subscription.status = payload.status
+    if payload.price is not None:
+        subscription.price = payload.price
+    if payload.currency is not None:
+        subscription.currency = payload.currency
+    if payload.renews_at is not None:
+        subscription.renews_at = payload.renews_at
+
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "admin.subscription_update", "subscription", subscription.id
+    )
+    await session.commit()
+    return _subscription_to_response(subscription)

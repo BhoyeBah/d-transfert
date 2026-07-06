@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.wallet import Wallet
@@ -32,3 +32,8 @@ async def list_by_company(session: AsyncSession, company_id: uuid.UUID) -> list[
 async def lock_by_id(session: AsyncSession, wallet_id: uuid.UUID) -> Wallet | None:
     result = await session.execute(select(Wallet).where(Wallet.id == wallet_id).with_for_update())
     return result.scalar_one_or_none()
+
+
+async def count_all(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count()).select_from(Wallet))
+    return int(result.scalar_one())

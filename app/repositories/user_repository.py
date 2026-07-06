@@ -73,6 +73,19 @@ async def count_employees_by_company(session: AsyncSession, company_id: uuid.UUI
     return int(result.scalar_one())
 
 
+async def list_all_by_company(session: AsyncSession, company_id: uuid.UUID) -> list[User]:
+    """Owner and employees, for platform administration (unlike list_by_company)."""
+    result = await session.execute(
+        select(User).where(User.company_id == company_id).order_by(User.is_owner.desc(), User.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def count_all(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count()).select_from(User))
+    return int(result.scalar_one())
+
+
 async def get_effective_permission_codes(session: AsyncSession, user: User) -> frozenset[str]:
     role_codes: set[str] = set()
     if user.role_id is not None:

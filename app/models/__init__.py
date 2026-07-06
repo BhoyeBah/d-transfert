@@ -13,10 +13,13 @@ from app.models.national_operation_line import NationalOperationLine
 from app.models.notification import Notification, NotificationType
 from app.models.password_reset_otp import PasswordResetOTP
 from app.models.payment import Payment, PaymentStatus, PaymentStatusHistory
+from app.models.platform_setting import PlatformSetting
 from app.models.private_sending_rate import PrivateSendingRate
 from app.models.role import OverrideEffect, Permission, Role, RolePermission, UserPermissionOverride
+from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
 from app.models.supplier import Supplier
 from app.models.supplier_balance_movement import SupplierBalanceMovement, SupplierMovementType
+from app.models.system_log import SystemLog, SystemLogLevel
 from app.models.transfer import SendMode, Transfer, TransferStatus, TransferStatusHistory
 from app.models.user import User
 from app.models.wallet import Wallet, WalletStatus, WalletType
@@ -49,14 +52,20 @@ __all__ = [
     "Payment",
     "PaymentStatus",
     "PaymentStatusHistory",
+    "PlatformSetting",
     "PrivateSendingRate",
     "Permission",
     "Role",
     "RolePermission",
     "SendMode",
+    "Subscription",
+    "SubscriptionPlan",
+    "SubscriptionStatus",
     "Supplier",
     "SupplierBalanceMovement",
     "SupplierMovementType",
+    "SystemLog",
+    "SystemLogLevel",
     "Transfer",
     "TransferStatus",
     "TransferStatusHistory",

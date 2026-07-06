@@ -15,10 +15,11 @@ from app.core.security import (
     verify_password,
 )
 from app.models.company import Company, CompanyStatus
+from app.models.system_log import SystemLogLevel
 from app.models.user import User
 from app.repositories import company_repository, password_reset_otp_repository, user_repository
 from app.schemas.auth import RegisterRequest, RegisterResponse
-from app.services import audit_service
+from app.services import audit_service, system_log_service
 from app.utils.reference import generate_company_registration_code
 
 logger = logging.getLogger("dtransfert.auth")
@@ -100,12 +101,26 @@ async def login(db: AsyncSession, matricule: str, password: str) -> tuple[str, s
         await _ensure_company_active(db, user)
 
     if _is_locked(user):
+        await system_log_service.log(
+            db, SystemLogLevel.WARNING, "auth", f"Tentative de connexion sur un compte verrouillé (matricule={matricule}).",
+            company_id=user.company_id, user_id=user.id,
+        )
+        await db.commit()
         raise UnauthorizedError("Compte temporairement verrouillé suite à plusieurs échecs. Réessayez plus tard.")
 
     if not verify_password(password, user.password_hash):
         user.failed_login_attempts += 1
         if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
             user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+            await system_log_service.log(
+                db, SystemLogLevel.WARNING, "auth", f"Compte verrouillé après échecs répétés (matricule={matricule}).",
+                company_id=user.company_id, user_id=user.id,
+            )
+        else:
+            await system_log_service.log(
+                db, SystemLogLevel.WARNING, "auth", f"Échec de connexion (matricule={matricule}).",
+                company_id=user.company_id, user_id=user.id,
+            )
         await db.commit()
         raise UnauthorizedError("Identifiants invalides.")
 
