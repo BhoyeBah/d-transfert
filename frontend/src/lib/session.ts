@@ -7,7 +7,15 @@ import { decodeJwtPayload, type AccessTokenPayload } from "@/lib/jwt";
 export const ACCESS_TOKEN_COOKIE = "dt_access_token";
 export const REFRESH_TOKEN_COOKIE = "dt_refresh_token";
 
-const isProduction = process.env.NODE_ENV === "production";
+// TEMPORARY: COOKIE_INSECURE=true disables the Secure cookie flag for a
+// production deployment served over plain HTTP (no TLS yet) — browsers
+// silently drop Secure cookies on non-HTTPS connections, which otherwise
+// looks like being logged out on every navigation. Remove this override
+// once the deployment is behind HTTPS; auth cookies must be Secure in
+// real production use.
+export const useSecureCookies =
+  process.env.NODE_ENV === "production" && process.env.COOKIE_INSECURE !== "true";
+const isProduction = useSecureCookies;
 
 function cookieOptionsFor(token: string) {
   const payload = decodeJwtPayload(token);

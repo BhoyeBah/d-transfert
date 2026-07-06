@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { decodeJwtPayload } from "@/lib/jwt";
-import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "@/lib/session";
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, useSecureCookies } from "@/lib/session";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -100,14 +100,14 @@ export async function proxy(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     response.cookies.set(ACCESS_TOKEN_COOKIE, refreshedAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: useSecureCookies,
       sameSite: "lax",
       path: "/",
       maxAge: accessPayload ? Math.max(accessPayload.exp - now, 0) : undefined,
     });
     response.cookies.set(REFRESH_TOKEN_COOKIE, refreshedRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: useSecureCookies,
       sameSite: "lax",
       path: "/",
       maxAge: refreshPayload ? Math.max(refreshPayload.exp - now, 0) : undefined,
