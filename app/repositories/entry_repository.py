@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entry import Entry
@@ -54,3 +54,8 @@ async def get_allocation_by_target(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def count_all(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count()).select_from(Entry))
+    return int(result.scalar_one())

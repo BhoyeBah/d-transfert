@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.national_operation import NationalOperation
@@ -41,3 +41,8 @@ async def get_lines(session: AsyncSession, operation_id: uuid.UUID) -> list[Nati
         .order_by(NationalOperationLine.created_at)
     )
     return list(result.scalars().all())
+
+
+async def count_all(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count()).select_from(NationalOperation))
+    return int(result.scalar_one())

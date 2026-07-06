@@ -1,6 +1,7 @@
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.collaboration import Collaboration
@@ -49,3 +50,13 @@ async def list_status_history(session: AsyncSession, payment_id: uuid.UUID) -> l
         .order_by(PaymentStatusHistory.created_at)
     )
     return list(result.scalars().all())
+
+
+async def count_all(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count()).select_from(Payment))
+    return int(result.scalar_one())
+
+
+async def sum_amount_by_currency(session: AsyncSession) -> dict[str, Decimal]:
+    result = await session.execute(select(Payment.currency, func.sum(Payment.amount)).group_by(Payment.currency))
+    return {currency: amount for currency, amount in result.all()}

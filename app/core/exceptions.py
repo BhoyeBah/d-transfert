@@ -1,5 +1,10 @@
+import traceback
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
+
+from app.models.system_log import SystemLogLevel
+from app.services import system_log_service
 
 
 class AppError(Exception):
@@ -46,6 +51,10 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-1000:]
+    await system_log_service.log_standalone(
+        SystemLogLevel.ERROR, f"http:{request.method} {request.url.path}", trace
+    )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Erreur interne du serveur."},
