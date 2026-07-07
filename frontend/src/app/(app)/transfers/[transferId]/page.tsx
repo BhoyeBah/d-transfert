@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TransferDecisionButtons } from "./transfer-decision-buttons";
+import { CancelTransferButton, TransferDecisionButtons } from "./transfer-decision-buttons";
 
 export const metadata: Metadata = { title: "Détail envoi — D-Transfert" };
 
@@ -67,10 +67,13 @@ export default async function TransferDetailPage({
             <StatusBadge status={transfer.status} />
             {canDecide && <TransferDecisionButtons transferId={transfer.id} />}
             {awaitingOtherParty && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ClockIcon className="size-3.5" />
-                En attente de validation par l&apos;autre partie
-              </span>
+              <>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ClockIcon className="size-3.5" />
+                  En attente de validation par l&apos;autre partie
+                </span>
+                <CancelTransferButton transferId={transfer.id} />
+              </>
             )}
           </div>
         </div>

@@ -12,6 +12,7 @@ import { AmountDisplay } from "@/components/amount-display";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -22,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreatePaymentDialog } from "./create-payment-dialog";
+import { CancelPaymentButton, PaymentDecisionButtons } from "./[paymentId]/payment-decision-buttons";
 
 export const metadata: Metadata = { title: "Paiements collaborateurs — D-Transfert" };
 
@@ -65,12 +67,15 @@ export default async function PaymentsPage() {
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {payments.map((payment) => {
                 const collaboration = collaborationsById.get(payment.collaboration_id);
-                const awaitingMe = payment.status === "pending" && payment.company_id !== me.company_id;
+                const isPending = payment.status === "pending";
+                const awaitingMe = isPending && payment.company_id !== me.company_id;
+                const canCancel = isPending && payment.company_id === me.company_id;
                 return (
                   <TableRow key={payment.id}>
                     <TableCell className="font-mono text-xs">
@@ -92,6 +97,15 @@ export default async function PaymentsPage() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {formatDate(payment.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {awaitingMe && <PaymentDecisionButtons paymentId={payment.id} />}
+                        {canCancel && <CancelPaymentButton paymentId={payment.id} />}
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/payments/${payment.id}`}>Voir</Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

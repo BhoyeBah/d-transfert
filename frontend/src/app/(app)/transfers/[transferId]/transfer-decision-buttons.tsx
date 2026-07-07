@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { approveTransferAction, rejectTransferAction } from "@/actions/transfers";
+import { approveTransferAction, cancelTransferAction, rejectTransferAction } from "@/actions/transfers";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,5 +77,32 @@ export function TransferDecisionButtons({ transferId }: { transferId: string }) 
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export function CancelTransferButton({ transferId }: { transferId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await cancelTransferAction(transferId);
+          if (!result.ok) {
+            toast.error(result.message);
+            return;
+          }
+          toast.success("Envoi annulé.");
+          router.refresh();
+        })
+      }
+    >
+      Annuler l&apos;envoi
+    </Button>
   );
 }

@@ -10,6 +10,7 @@ import { AmountDisplay } from "@/components/amount-display";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -58,6 +59,7 @@ export default async function WalletsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Solde</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -66,12 +68,12 @@ export default async function WalletsPage() {
                 return (
                   <TableRow key={wallet.id}>
                     <TableCell className="font-medium">
-                      <Link href={`/wallets/${wallet.id}`} className="flex items-center gap-2 hover:underline">
+                      <span className="flex items-center gap-2">
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
                           <Icon className="size-3.5" />
                         </span>
                         {wallet.name}
-                      </Link>
+                      </span>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{wallet.code}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -82,6 +84,11 @@ export default async function WalletsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <AmountDisplay value={wallet.balance} currency={wallet.currency} size="sm" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/wallets/${wallet.id}`}>Détail</Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );

@@ -87,3 +87,15 @@ export async function rejectPaymentAction(paymentId: string, reason: string): Pr
   revalidatePath(`/payments/${paymentId}`);
   return { ok: true, data: undefined };
 }
+
+export async function cancelPaymentAction(paymentId: string): Promise<MutationResult> {
+  try {
+    await serverFetch(`/api/v1/payments/${paymentId}/cancel`, { method: "POST", body: {} });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath("/payments");
+  revalidatePath(`/payments/${paymentId}`);
+  return { ok: true, data: undefined };
+}

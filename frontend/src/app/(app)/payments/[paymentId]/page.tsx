@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PaymentDecisionButtons } from "./payment-decision-buttons";
+import { CancelPaymentButton, PaymentDecisionButtons } from "./payment-decision-buttons";
 
 export const metadata: Metadata = { title: "Détail paiement — D-Transfert" };
 
@@ -64,10 +64,13 @@ export default async function PaymentDetailPage({
             <StatusBadge status={payment.status} />
             {canDecide && <PaymentDecisionButtons paymentId={payment.id} />}
             {awaitingOtherParty && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ClockIcon className="size-3.5" />
-                En attente de validation par l&apos;autre partie
-              </span>
+              <>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ClockIcon className="size-3.5" />
+                  En attente de validation par l&apos;autre partie
+                </span>
+                <CancelPaymentButton paymentId={payment.id} />
+              </>
             )}
           </div>
         </div>

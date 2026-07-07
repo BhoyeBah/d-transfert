@@ -89,3 +89,15 @@ export async function rejectTransferAction(transferId: string, reason: string): 
   revalidatePath(`/transfers/${transferId}`);
   return { ok: true, data: undefined };
 }
+
+export async function cancelTransferAction(transferId: string): Promise<MutationResult> {
+  try {
+    await serverFetch(`/api/v1/transfers/${transferId}/cancel`, { method: "POST", body: {} });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath("/transfers");
+  revalidatePath(`/transfers/${transferId}`);
+  return { ok: true, data: undefined };
+}

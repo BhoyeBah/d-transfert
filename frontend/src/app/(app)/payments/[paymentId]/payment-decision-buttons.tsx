@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { approvePaymentAction, rejectPaymentAction } from "@/actions/payments";
+import { approvePaymentAction, cancelPaymentAction, rejectPaymentAction } from "@/actions/payments";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,5 +77,32 @@ export function PaymentDecisionButtons({ paymentId }: { paymentId: string }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await cancelPaymentAction(paymentId);
+          if (!result.ok) {
+            toast.error(result.message);
+            return;
+          }
+          toast.success("Paiement annulé.");
+          router.refresh();
+        })
+      }
+    >
+      Annuler le paiement
+    </Button>
   );
 }
