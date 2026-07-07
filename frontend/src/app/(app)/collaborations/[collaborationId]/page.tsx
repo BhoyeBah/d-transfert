@@ -10,6 +10,7 @@ import {
 } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { formatDate } from "@/lib/format";
+import { sendModeLabels } from "@/lib/validation/transfers";
 import { BalanceCard } from "@/components/balance-card";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -176,6 +177,7 @@ export default async function CollaborationDetailPage({
                   <TableRow>
                     <TableHead>Devise</TableHead>
                     <TableHead>Pays</TableHead>
+                    <TableHead>Type d&apos;opération</TableHead>
                     <TableHead className="text-right">Taux</TableHead>
                     <TableHead>Statut</TableHead>
                   </TableRow>
@@ -185,6 +187,7 @@ export default async function CollaborationDetailPage({
                     <TableRow key={rate.id}>
                       <TableCell>{rate.currency}</TableCell>
                       <TableCell>{rate.country ?? "—"}</TableCell>
+                      <TableCell>{rate.operation_type ? sendModeLabels[rate.operation_type] : "Tous"}</TableCell>
                       <TableCell className="text-right tabular-nums">{rate.rate}</TableCell>
                       <TableCell>
                         <StatusBadge status={rate.is_active ? "active" : "inactive"} />

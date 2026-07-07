@@ -106,6 +106,7 @@ export async function updateAdminSettingsAction(payload: {
   supported_currencies: string[];
   max_transaction_amount: number | null;
   maintenance_mode: boolean;
+  require_company_approval: boolean;
 }): Promise<MutationResult> {
   try {
     await serverFetch("/api/v1/admin/settings", {
@@ -115,6 +116,7 @@ export async function updateAdminSettingsAction(payload: {
         max_transaction_amount:
           payload.max_transaction_amount !== null ? String(payload.max_transaction_amount) : null,
         maintenance_mode: payload.maintenance_mode,
+        require_company_approval: payload.require_company_approval,
       },
     });
   } catch (error) {

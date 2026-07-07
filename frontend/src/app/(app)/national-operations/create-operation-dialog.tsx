@@ -60,16 +60,40 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
 
   const firstLineAmount = watch("lines.0.amount");
   const firstLineDirection = watch("lines.0.direction");
+  const firstLineWalletId = watch("lines.0.wallet_id");
+  const secondLineWalletId = watch("lines.1.wallet_id");
+  const exchangeRate = watch("exchange_rate");
   const isSimplePair = fields.length === 2;
 
-  // Cas simple à 2 lignes (dépôt/retrait/échange même devise) : la ligne 2 suit
+  const firstLineCurrency = wallets.find((w) => w.id === firstLineWalletId)?.currency;
+  const secondLineCurrency = wallets.find((w) => w.id === secondLineWalletId)?.currency;
+  const isCrossCurrency =
+    isSimplePair && !!firstLineCurrency && !!secondLineCurrency && firstLineCurrency !== secondLineCurrency;
+
+  // Cas simple à 2 lignes même devise (dépôt/retrait/échange) : la ligne 2 suit
   // automatiquement le montant et le sens inverse de la ligne 1, l'utilisateur n'a plus
   // qu'à choisir le wallet de la ligne 2.
+  // Cas échange entre deux devises différentes : le montant de la ligne 2 est calculé
+  // à partir du taux de change saisi, appliqué au montant de la ligne 1.
   useEffect(() => {
     if (!isSimplePair) return;
     setValue("lines.1.direction", firstLineDirection === "in" ? "out" : "in");
-    setValue("lines.1.amount", firstLineAmount);
-  }, [isSimplePair, firstLineAmount, firstLineDirection, setValue]);
+    if (!isCrossCurrency) {
+      setValue("lines.1.amount", firstLineAmount);
+      return;
+    }
+    if (exchangeRate && exchangeRate > 0) {
+      const converted =
+        firstLineDirection === "out" ? firstLineAmount * exchangeRate : firstLineAmount / exchangeRate;
+      setValue("lines.1.amount", Math.round(converted * 100) / 100);
+    }
+  }, [isSimplePair, isCrossCurrency, firstLineAmount, firstLineDirection, exchangeRate, setValue]);
+
+  useEffect(() => {
+    if (!isCrossCurrency) {
+      setValue("exchange_rate", undefined);
+    }
+  }, [isCrossCurrency, setValue]);
 
   async function onSubmit(values: NationalOperationFormValues) {
     const result = await createNationalOperationAction(type, values);
@@ -189,7 +213,9 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
                     {...register(`lines.${index}.amount`, { valueAsNumber: true })}
                   />
                   {isLockedSecondLine && (
-                    <p className="text-[10px] text-muted-foreground">Auto (ligne 1)</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {isCrossCurrency ? "Auto (taux)" : "Auto (ligne 1)"}
+                    </p>
                   )}
                   <input type="hidden" {...register(`lines.${index}.currency`)} />
                 </div>
@@ -206,6 +232,24 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
               );
             })}
           </div>
+
+          {isCrossCurrency && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="exchange_rate">
+                Taux de change ({firstLineCurrency} → {secondLineCurrency})
+              </Label>
+              <Input
+                id="exchange_rate"
+                type="number"
+                min="0"
+                step="0.000001"
+                {...register("exchange_rate", { valueAsNumber: true })}
+              />
+              {errors.exchange_rate && (
+                <p className="text-sm text-destructive">{errors.exchange_rate.message}</p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">

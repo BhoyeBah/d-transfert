@@ -125,6 +125,7 @@ export async function createPrivateRateAction(
   const parsed = createPrivateRateSchema.safeParse({
     collaboration_id: formData.get("collaboration_id") || undefined,
     country: formData.get("country") || undefined,
+    operation_type: formData.get("operation_type") || undefined,
     currency: formData.get("currency"),
     rate: formData.get("rate"),
   });
@@ -138,6 +139,7 @@ export async function createPrivateRateAction(
       body: {
         collaboration_id: parsed.data.collaboration_id || null,
         country: parsed.data.country || null,
+        operation_type: parsed.data.operation_type || null,
         currency: parsed.data.currency,
         rate: String(parsed.data.rate),
       },

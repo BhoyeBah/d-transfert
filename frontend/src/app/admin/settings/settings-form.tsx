@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 export function SettingsForm({ settings }: { settings: PlatformSettings }) {
   const [isPending, startTransition] = useTransition();
   const [maintenanceMode, setMaintenanceMode] = useState(settings.maintenance_mode);
+  const [requireCompanyApproval, setRequireCompanyApproval] = useState(settings.require_company_approval);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,6 +29,7 @@ export function SettingsForm({ settings }: { settings: PlatformSettings }) {
         supported_currencies: currencies,
         max_transaction_amount: maxAmountRaw ? Number(maxAmountRaw) : null,
         maintenance_mode: maintenanceMode,
+        require_company_approval: requireCompanyApproval,
       });
       if (!result.ok) {
         toast.error(result.message);
@@ -65,6 +67,16 @@ export function SettingsForm({ settings }: { settings: PlatformSettings }) {
           onCheckedChange={setMaintenanceMode}
         />
         <Label htmlFor="maintenance_mode">Mode maintenance</Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch
+          id="require_company_approval"
+          checked={requireCompanyApproval}
+          onCheckedChange={setRequireCompanyApproval}
+        />
+        <Label htmlFor="require_company_approval">
+          Nouvelles entreprises en attente de validation (au lieu d&apos;actives automatiquement)
+        </Label>
       </div>
       <div className="flex justify-end pt-2">
         <Button type="submit" disabled={isPending}>

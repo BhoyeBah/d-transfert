@@ -28,6 +28,7 @@ export const createNationalOperationSchema = z.object({
   client_name: z.string().max(255).optional(),
   client_phone: z.string().max(32).optional(),
   note: z.string().max(255).optional(),
+  exchange_rate: z.number().gt(0).optional(),
   lines: z.array(nationalOperationLineSchema).min(2, "Au moins 2 lignes sont requises."),
 });
 

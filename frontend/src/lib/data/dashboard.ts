@@ -1,10 +1,14 @@
 import "server-only";
 
 import { serverFetch } from "@/lib/api";
-import type { DashboardResponse, NotificationItem } from "@/types/api";
+import type { DashboardResponse, EmployeeDashboard, NotificationItem } from "@/types/api";
 
 export async function getDashboard(): Promise<DashboardResponse> {
   return serverFetch<DashboardResponse>("/api/v1/dashboard");
+}
+
+export async function getEmployeeDashboard(): Promise<EmployeeDashboard> {
+  return serverFetch<EmployeeDashboard>("/api/v1/dashboard/me");
 }
 
 export async function listNotifications(): Promise<NotificationItem[]> {

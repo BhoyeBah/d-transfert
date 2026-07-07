@@ -38,6 +38,7 @@ export async function createNationalOperationAction(
           client_name: parsed.data.client_name || null,
           client_phone: parsed.data.client_phone || null,
           note: parsed.data.note || null,
+          exchange_rate: parsed.data.exchange_rate ? String(parsed.data.exchange_rate) : null,
           lines,
         },
       }

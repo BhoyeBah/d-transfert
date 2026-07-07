@@ -43,6 +43,7 @@ export default async function NationalOperationDetailPage({
             <p className="text-sm text-muted-foreground">
               {nationalOperationTypeLabels[operation.type as "deposit"] ?? operation.type} ·{" "}
               {formatDate(operation.created_at)}
+              {operation.exchange_rate && <> · Taux appliqué : {operation.exchange_rate}</>}
             </p>
           </div>
           <div className="flex items-center gap-2">
