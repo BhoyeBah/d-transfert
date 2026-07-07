@@ -18,13 +18,13 @@ const STATUS_CONFIG: Record<string, { label: string; variant: Variant }> = {
   consumed: { label: "Consommée", variant: "secondary" },
   rejected: { label: "Rejetée", variant: "destructive" },
   // transfers / payments
-  pending: { label: "En attente", variant: "warning" },
+  pending: { label: "En attente", variant: "pending" },
   approved: { label: "Approuvé", variant: "success" },
   // collaborations
   accepted: { label: "Acceptée", variant: "success" },
   suspended: { label: "Suspendue", variant: "secondary" },
   archived: { label: "Archivée", variant: "secondary" },
-  proposed: { label: "Proposé", variant: "warning" },
+  proposed: { label: "Proposé", variant: "pending" },
   // system logs / subscriptions
   info: { label: "Info", variant: "outline" },
   warning: { label: "Avertissement", variant: "warning" },

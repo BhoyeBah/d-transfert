@@ -3,9 +3,11 @@ import Link from "next/link";
 import { ArrowLeftIcon, ClockIcon } from "lucide-react";
 
 import { uploadPaymentProofAction } from "@/actions/payments";
+import { getCollaboration } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { getPayment, getPaymentStatusHistory, listPaymentProofs } from "@/lib/data/payments";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
 import { ProofsCard } from "@/components/proofs-card";
 import { StatusBadge } from "@/components/status-badge";
@@ -34,6 +36,7 @@ export default async function PaymentDetailPage({
     listPaymentProofs(paymentId),
     getMe(),
   ]);
+  const collaboration = await getCollaboration(payment.collaboration_id);
 
   const isCounterparty = payment.company_id !== me.company_id;
   const isPending = payment.status === "pending";
@@ -52,8 +55,10 @@ export default async function PaymentDetailPage({
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-mono text-lg font-semibold tracking-tight">{payment.reference}</h1>
-            <p className="text-sm text-muted-foreground">{formatDate(payment.created_at)}</p>
+            <h1 className="font-mono text-xl font-semibold tracking-tight">{payment.reference}</h1>
+            <p className="text-sm text-muted-foreground">
+              Vers {collaboration.counterparty_company_name} · {formatDate(payment.created_at)}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={payment.status} />
@@ -76,11 +81,11 @@ export default async function PaymentDetailPage({
           <CardContent className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Montant</span>
-              <span className="font-medium tabular-nums">{formatMoney(payment.amount, payment.currency)}</span>
+              <AmountDisplay value={payment.amount} currency={payment.currency} size="md" />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Montant converti</span>
-              <span className="font-medium tabular-nums">{payment.converted_amount}</span>
+              <AmountDisplay value={payment.converted_amount} currency={collaboration.currency} size="md" />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Taux collaboratif utilisé</span>
@@ -89,9 +94,7 @@ export default async function PaymentDetailPage({
             {payment.client_debt_amount && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dette client (manquant)</span>
-                <span className="font-medium tabular-nums text-destructive">
-                  {formatMoney(payment.client_debt_amount, payment.currency)}
-                </span>
+                <AmountDisplay value={`-${payment.client_debt_amount}`} currency={payment.currency} size="md" signed />
               </div>
             )}
             {payment.rejection_reason && (

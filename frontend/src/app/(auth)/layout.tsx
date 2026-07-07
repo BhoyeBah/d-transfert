@@ -1,13 +1,19 @@
 import Link from "next/link";
+import { Landmark } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col justify-between p-8 sm:p-12">
-        <Link href="/" className="text-sm font-semibold tracking-tight">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight">
+          <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Landmark className="size-4" />
+          </span>
           D-Transfert
         </Link>
-        <div className="mx-auto w-full max-w-sm py-12">{children}</div>
+        <div className="mx-auto w-full max-w-md py-12">
+          <div className="rounded-xl border border-border bg-card p-8 shadow-sm">{children}</div>
+        </div>
         <p className="text-xs text-muted-foreground">
           © {new Date().getFullYear()} D-Transfert. Plateforme de gestion multi-entreprises.
         </p>

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Banknote, Landmark, Smartphone, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 
 import { getCompanyMe } from "@/lib/data/company";
 import { listWallets } from "@/lib/data/wallets";
-import { formatMoney } from "@/lib/format";
 import { walletTypeLabels } from "@/lib/validation/wallets";
+import type { WalletType } from "@/types/api";
+import { AmountDisplay } from "@/components/amount-display";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -21,6 +23,13 @@ import { CreateWalletDialog } from "./create-wallet-dialog";
 
 export const metadata: Metadata = { title: "Wallets — D-Transfert" };
 
+const WALLET_TYPE_ICONS: Record<WalletType, LucideIcon> = {
+  cash: Banknote,
+  mobile_money: Smartphone,
+  bank: Landmark,
+  other: WalletIcon,
+};
+
 export default async function WalletsPage() {
   const [wallets, company] = await Promise.all([listWallets(), getCompanyMe()]);
 
@@ -33,7 +42,12 @@ export default async function WalletsPage() {
       />
 
       {wallets.length === 0 ? (
-        <EmptyState message="Aucun wallet créé pour le moment." />
+        <EmptyState
+          icon={WalletIcon}
+          title="Aucun wallet"
+          message="Créez votre premier wallet (cash, mobile money, banque) pour commencer à enregistrer vos opérations."
+          action={<CreateWalletDialog defaultCurrency={company.default_currency} />}
+        />
       ) : (
         <Card className="py-0">
           <Table>
@@ -47,23 +61,31 @@ export default async function WalletsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {wallets.map((wallet) => (
-                <TableRow key={wallet.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/wallets/${wallet.id}`} className="hover:underline">
-                      {wallet.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{wallet.code}</TableCell>
-                  <TableCell>{walletTypeLabels[wallet.type]}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={wallet.status} />
-                  </TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">
-                    {formatMoney(wallet.balance, wallet.currency)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {wallets.map((wallet) => {
+                const Icon = WALLET_TYPE_ICONS[wallet.type];
+                return (
+                  <TableRow key={wallet.id}>
+                    <TableCell className="font-medium">
+                      <Link href={`/wallets/${wallet.id}`} className="flex items-center gap-2 hover:underline">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                          <Icon className="size-3.5" />
+                        </span>
+                        {wallet.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{wallet.code}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {walletTypeLabels[wallet.type]}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={wallet.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <AmountDisplay value={wallet.balance} currency={wallet.currency} size="sm" />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>

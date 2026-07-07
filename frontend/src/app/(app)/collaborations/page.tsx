@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Building2 } from "lucide-react";
 
 import { getCompanyMe } from "@/lib/data/company";
 import { listCollaborations } from "@/lib/data/collaborations";
@@ -37,12 +38,18 @@ export default async function CollaborationsPage() {
       />
 
       {collaborations.length === 0 ? (
-        <EmptyState message="Aucune collaboration pour le moment." />
+        <EmptyState
+          icon={Building2}
+          title="Aucune collaboration"
+          message="Envoyez une demande à une entreprise partenaire par son matricule pour commencer à échanger des envois internationaux."
+          action={<RequestCollaborationDialog defaultCurrency={company.default_currency} />}
+        />
       ) : (
         <Card className="py-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Entreprise</TableHead>
                 <TableHead>Rôle</TableHead>
                 <TableHead>Devise</TableHead>
                 <TableHead>Statut</TableHead>
@@ -54,9 +61,15 @@ export default async function CollaborationsPage() {
               {collaborations.map((collaboration) => (
                 <TableRow key={collaboration.id}>
                   <TableCell>
-                    <Link href={`/collaborations/${collaboration.id}`} className="hover:underline">
-                      {collaboration.initiator_company_id === me.company_id ? "Initiateur" : "Sollicité"}
+                    <Link href={`/collaborations/${collaboration.id}`} className="font-medium hover:underline">
+                      {collaboration.counterparty_company_name}
                     </Link>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {collaboration.counterparty_company_matricule}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {collaboration.initiator_company_id === me.company_id ? "Initiateur" : "Sollicité"}
                   </TableCell>
                   <TableCell>{collaboration.currency}</TableCell>
                   <TableCell>

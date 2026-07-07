@@ -3,8 +3,9 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { getWallet, listWalletMovements } from "@/lib/data/wallets";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { walletTypeLabels } from "@/lib/validation/wallets";
+import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +44,7 @@ export default async function WalletDetailPage({
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">{wallet.name}</h1>
+            <h1 className="text-xl font-semibold tracking-tight">{wallet.name}</h1>
             <p className="text-sm text-muted-foreground">
               {wallet.code} · {walletTypeLabels[wallet.type]}
             </p>
@@ -58,9 +59,9 @@ export default async function WalletDetailPage({
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Solde
             </span>
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatMoney(wallet.balance, wallet.currency)}
-            </p>
+            <div className="mt-1">
+              <AmountDisplay value={wallet.balance} currency={wallet.currency} size="xl" />
+            </div>
           </CardContent>
         </Card>
         <Card className="py-4">
@@ -118,11 +119,11 @@ export default async function WalletDetailPage({
                     >
                       {movement.direction === "in" ? "Entrée" : "Sortie"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(movement.amount, movement.currency)}
+                    <TableCell className="text-right">
+                      <AmountDisplay value={movement.amount} currency={movement.currency} size="sm" />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(movement.balance_after, movement.currency)}
+                    <TableCell className="text-right">
+                      <AmountDisplay value={movement.balance_after} currency={movement.currency} size="sm" />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {movement.note ?? "—"}

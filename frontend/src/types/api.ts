@@ -13,6 +13,8 @@ export type CompanyMe = {
 export type CollaboratorBalanceSummary = {
   collaboration_id: string;
   collaborator_company_id: string;
+  collaborator_company_name: string;
+  collaborator_company_matricule: string;
   currency: string;
   balance: string;
 };
@@ -158,6 +160,8 @@ export type Collaboration = {
   id: string;
   initiator_company_id: string;
   target_company_id: string;
+  counterparty_company_name: string;
+  counterparty_company_matricule: string;
   currency: string;
   status: CollaborationStatus;
   note: string | null;

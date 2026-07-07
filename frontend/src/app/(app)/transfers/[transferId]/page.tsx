@@ -3,10 +3,12 @@ import Link from "next/link";
 import { ArrowLeftIcon, ClockIcon } from "lucide-react";
 
 import { uploadTransferProofAction } from "@/actions/transfers";
+import { getCollaboration } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { getTransfer, getTransferStatusHistory, listTransferProofs } from "@/lib/data/transfers";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { sendModeLabels } from "@/lib/validation/transfers";
+import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
 import { ProofsCard } from "@/components/proofs-card";
 import { StatusBadge } from "@/components/status-badge";
@@ -35,6 +37,7 @@ export default async function TransferDetailPage({
     listTransferProofs(transferId),
     getMe(),
   ]);
+  const collaboration = await getCollaboration(transfer.collaboration_id);
 
   const isCounterparty = transfer.company_id !== me.company_id;
   const isPending = transfer.status === "pending";
@@ -54,9 +57,10 @@ export default async function TransferDetailPage({
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-mono text-lg font-semibold tracking-tight">{transfer.reference}</h1>
+            <h1 className="font-mono text-xl font-semibold tracking-tight">{transfer.reference}</h1>
             <p className="text-sm text-muted-foreground">
-              {transfer.beneficiary_name ?? transfer.beneficiary_phone} · {formatDate(transfer.created_at)}
+              Vers {collaboration.counterparty_company_name} · {transfer.beneficiary_name ?? transfer.beneficiary_phone} ·{" "}
+              {formatDate(transfer.created_at)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -80,11 +84,11 @@ export default async function TransferDetailPage({
           <CardContent className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Montant</span>
-              <span className="font-medium tabular-nums">{formatMoney(transfer.amount, transfer.currency)}</span>
+              <AmountDisplay value={transfer.amount} currency={transfer.currency} size="md" />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Montant converti</span>
-              <span className="font-medium tabular-nums">{transfer.converted_amount}</span>
+              <AmountDisplay value={transfer.converted_amount} currency={collaboration.currency} size="md" />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Taux collaboratif utilisé</span>
@@ -107,9 +111,7 @@ export default async function TransferDetailPage({
             {transfer.client_debt_amount && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dette client (manquant)</span>
-                <span className="font-medium tabular-nums text-destructive">
-                  {formatMoney(transfer.client_debt_amount, transfer.currency)}
-                </span>
+                <AmountDisplay value={`-${transfer.client_debt_amount}`} currency={transfer.currency} size="md" signed />
               </div>
             )}
             {transfer.rejection_reason && (
