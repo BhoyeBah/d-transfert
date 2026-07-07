@@ -175,7 +175,7 @@ export function CreatePaymentDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="client_name">Client (si dépassement)</Label>
+              <Label htmlFor="client_name">Client (si le client vous doit ce montant)</Label>
               <Input id="client_name" {...register("client_name")} />
             </div>
             <div className="grid gap-1.5">
@@ -183,6 +183,10 @@ export function CreatePaymentDialog({
               <Input id="client_phone" {...register("client_phone")} />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Sans entrée sélectionnée, renseigner un client enregistre une dette client pour la
+            totalité du montant. Avec une entrée, seul le manquant devient une dette client.
+          </p>
           <div className="grid gap-1.5">
             <Label htmlFor="note">Note (optionnel)</Label>
             <Input id="note" {...register("note")} />
