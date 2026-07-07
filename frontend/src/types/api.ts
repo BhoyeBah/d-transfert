@@ -246,6 +246,8 @@ export type TransferStatusHistoryEntry = {
 
 // --- Proofs ---
 
+export type ProofStatus = "pending" | "validated" | "rejected";
+
 export type Proof = {
   id: string;
   transfer_id: string | null;
@@ -256,6 +258,7 @@ export type Proof = {
   content_type: string;
   file_size: number;
   note: string | null;
+  status: ProofStatus;
   created_at: string;
 };
 

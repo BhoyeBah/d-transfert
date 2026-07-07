@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
@@ -41,6 +41,7 @@ export function CreatePaymentDialog({
   const {
     register,
     handleSubmit,
+    watch,
     setValue,
     reset,
     formState: { errors, isSubmitting },
@@ -53,6 +54,16 @@ export function CreatePaymentDialog({
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
   const lockedEntry = defaultEntryId ? entries.find((entry) => entry.id === defaultEntryId) : undefined;
+  const collaborationId = watch("collaboration_id");
+  const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
+
+  // Cf. envois : la devise proposée doit refléter la collaboration choisie, sinon elle reste
+  // vide ou obsolète si l'utilisateur change de collaboration après coup.
+  useEffect(() => {
+    if (selectedCollaboration) {
+      setValue("currency", selectedCollaboration.currency);
+    }
+  }, [selectedCollaboration, setValue]);
 
   function changeSource(next: Source) {
     setSource(next);

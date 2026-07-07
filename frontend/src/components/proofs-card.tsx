@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/format";
 import type { MutationResult } from "@/lib/mutation-result";
 import type { Proof } from "@/types/api";
 import { EmptyState } from "@/components/empty-state";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,10 @@ export function ProofsCard({
                 className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
               >
                 <div className="flex flex-col">
-                  <span className="font-medium">{proof.file_name}</span>
+                  <span className="flex items-center gap-2 font-medium">
+                    {proof.file_name}
+                    <StatusBadge status={proof.status} />
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {formatFileSize(proof.file_size)} · {formatDate(proof.created_at)}
                     {proof.note ? ` · ${proof.note}` : ""}

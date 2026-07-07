@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
@@ -67,6 +67,15 @@ export function CreateTransferDialog({
   );
   const lockedEntry = defaultEntryId ? entries.find((entry) => entry.id === defaultEntryId) : undefined;
   const entryId = watch("entry_id");
+
+  // La devise proposée doit toujours refléter la collaboration choisie : sans ceci, un champ
+  // non contrôlé garde la devise vide (aucune collaboration au montage) ou celle de l'ancienne
+  // collaboration si l'utilisateur en choisit une autre après coup.
+  useEffect(() => {
+    if (selectedCollaboration) {
+      setValue("currency", selectedCollaboration.currency);
+    }
+  }, [selectedCollaboration, setValue]);
 
   async function onSubmit(values: CreateTransferFormValues) {
     if (!hasClientDebt) {
@@ -193,7 +202,6 @@ export function CreateTransferDialog({
               <Label htmlFor="currency">Devise</Label>
               <Input
                 id="currency"
-                defaultValue={selectedCollaboration?.currency}
                 {...register("currency")}
                 onChange={(e) => setValue("currency", e.target.value.toUpperCase())}
               />
