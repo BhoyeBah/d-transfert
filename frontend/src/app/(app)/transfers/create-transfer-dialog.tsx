@@ -8,8 +8,10 @@ import { toast } from "sonner";
 
 import { createTransferAction } from "@/actions/transfers";
 import {
+  RELIQUAT_ACTIONS,
   SEND_MODES,
   createTransferSchema,
+  reliquatActionLabels,
   sendModeLabels,
   type CreateTransferFormValues,
 } from "@/lib/validation/transfers";
@@ -58,6 +60,7 @@ export function CreateTransferDialog({
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
+  const entryId = watch("entry_id");
 
   async function onSubmit(values: CreateTransferFormValues) {
     const result = await createTransferAction(values);
@@ -123,6 +126,23 @@ export function CreateTransferDialog({
               ))}
             </select>
           </div>
+
+          {entryId && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="reliquat_action">Si le montant est inférieur au disponible de l&apos;entrée</Label>
+              <select
+                id="reliquat_action"
+                {...register("reliquat_action")}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                {RELIQUAT_ACTIONS.map((action) => (
+                  <option key={action} value={action}>
+                    {reliquatActionLabels[action]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">

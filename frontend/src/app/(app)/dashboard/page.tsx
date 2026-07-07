@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeftRight,
   Building2,
   Clock,
@@ -55,6 +56,27 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
         <p className="text-sm text-muted-foreground">Vue d&apos;ensemble de votre activité du jour.</p>
       </div>
+
+      {dashboard.alerts.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Alertes importantes</h2>
+          <div className="flex flex-col gap-2">
+            {dashboard.alerts.map((alert, index) => (
+              <div
+                key={index}
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                  alert.severity === "critical"
+                    ? "border-destructive/30 bg-destructive/10 text-destructive"
+                    : "border-pending/30 bg-pending/10 text-pending-foreground"
+                }`}
+              >
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>{alert.message}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Position financière</h2>

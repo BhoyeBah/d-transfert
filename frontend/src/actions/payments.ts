@@ -28,6 +28,7 @@ export async function createPaymentAction(
         client_name: parsed.data.client_name || null,
         client_phone: parsed.data.client_phone || null,
         note: parsed.data.note || null,
+        reliquat_action: parsed.data.reliquat_action || "unallocated",
       },
     });
     revalidatePath("/payments");

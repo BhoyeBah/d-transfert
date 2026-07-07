@@ -3,12 +3,14 @@ import { Menu, LogOut, ShieldAlert } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AdminNav } from "@/components/layout/admin-nav";
+import { IdleLogout } from "@/components/idle-logout";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export function AdminShell({ fullName, children }: { fullName: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
+      <IdleLogout />
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         <div className="flex h-14 items-center gap-2 px-5 text-sm font-semibold tracking-tight">
           <ShieldAlert className="size-4" />

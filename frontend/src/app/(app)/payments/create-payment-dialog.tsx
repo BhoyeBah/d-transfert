@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { createPaymentAction } from "@/actions/payments";
 import { createPaymentSchema, type CreatePaymentFormValues } from "@/lib/validation/payments";
+import { RELIQUAT_ACTIONS, reliquatActionLabels } from "@/lib/validation/transfers";
 import type { Collaboration, Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -131,6 +132,23 @@ export function CreatePaymentDialog({
                     {Object.entries(entry.available_by_currency)
                       .map(([currency, amount]) => `${amount} ${currency}`)
                       .join(", ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {source === "entry" && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="reliquat_action">Si le montant est inférieur au disponible de l&apos;entrée</Label>
+              <select
+                id="reliquat_action"
+                {...register("reliquat_action")}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                {RELIQUAT_ACTIONS.map((action) => (
+                  <option key={action} value={action}>
+                    {reliquatActionLabels[action]}
                   </option>
                 ))}
               </select>

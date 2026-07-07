@@ -19,6 +19,11 @@ export type CollaboratorBalanceSummary = {
   balance: string;
 };
 
+export type DashboardAlert = {
+  severity: "info" | "warning" | "critical";
+  message: string;
+};
+
 export type DashboardResponse = {
   wallets_balance_by_currency: Record<string, string>;
   collaborator_balances: CollaboratorBalanceSummary[];
@@ -34,6 +39,7 @@ export type DashboardResponse = {
   clients_total_balance: string;
   suppliers_total_balance: string;
   unread_notifications_count: number;
+  alerts: DashboardAlert[];
 };
 
 export type NotificationItem = {
