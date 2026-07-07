@@ -39,9 +39,12 @@ import {
 export function CreateTransferDialog({
   collaborations,
   entries,
+  defaultEntryId,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
+  /** Pré-sélectionne et verrouille une entrée (bouton "Transformer en envoi" depuis une entrée). */
+  defaultEntryId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [hasClientDebt, setHasClientDebt] = useState(false);
@@ -54,7 +57,7 @@ export function CreateTransferDialog({
     formState: { errors, isSubmitting },
   } = useForm<CreateTransferFormValues>({
     resolver: zodResolver(createTransferSchema),
-    defaultValues: { send_mode: "cash" },
+    defaultValues: { send_mode: "cash", entry_id: defaultEntryId ?? "" },
   });
 
   const collaborationId = watch("collaboration_id");
@@ -62,6 +65,7 @@ export function CreateTransferDialog({
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
+  const lockedEntry = defaultEntryId ? entries.find((entry) => entry.id === defaultEntryId) : undefined;
   const entryId = watch("entry_id");
 
   async function onSubmit(values: CreateTransferFormValues) {
@@ -93,14 +97,16 @@ export function CreateTransferDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={defaultEntryId ? "outline" : "default"} size={defaultEntryId ? "sm" : "default"}>
           <PlusIcon />
-          Nouvel envoi
+          {defaultEntryId ? "Transformer en envoi" : "Nouvel envoi"}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Créer un envoi international</DialogTitle>
+          <DialogTitle>
+            {defaultEntryId ? "Transformer l'entrée en envoi international" : "Créer un envoi international"}
+          </DialogTitle>
           <DialogDescription>
             Le taux collaboratif en vigueur sera figé sur cet envoi au moment de la création.
           </DialogDescription>
@@ -129,21 +135,35 @@ export function CreateTransferDialog({
 
           <div className="grid gap-1.5">
             <Label htmlFor="entry_id">Entrée à transformer (optionnel)</Label>
-            <select
-              id="entry_id"
-              {...register("entry_id")}
-              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-            >
-              <option value="">Aucune — solde direct</option>
-              {eligibleEntries.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.reference} —{" "}
-                  {Object.entries(entry.available_by_currency)
-                    .map(([currency, amount]) => `${amount} ${currency}`)
-                    .join(", ")}
-                </option>
-              ))}
-            </select>
+            {defaultEntryId ? (
+              <>
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted px-2 text-sm text-muted-foreground">
+                  {lockedEntry?.reference ?? defaultEntryId} —{" "}
+                  {lockedEntry
+                    ? Object.entries(lockedEntry.available_by_currency)
+                        .map(([currency, amount]) => `${amount} ${currency}`)
+                        .join(", ")
+                    : ""}
+                </div>
+                <input type="hidden" {...register("entry_id")} />
+              </>
+            ) : (
+              <select
+                id="entry_id"
+                {...register("entry_id")}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                <option value="">Aucune — solde direct</option>
+                {eligibleEntries.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.reference} —{" "}
+                    {Object.entries(entry.available_by_currency)
+                      .map(([currency, amount]) => `${amount} ${currency}`)
+                      .join(", ")}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {entryId && (

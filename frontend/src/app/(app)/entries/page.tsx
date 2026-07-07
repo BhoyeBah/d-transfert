@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ScrollText } from "lucide-react";
 
+import { listCollaborations } from "@/lib/data/collaborations";
 import { listEntries } from "@/lib/data/entries";
 import { listWallets } from "@/lib/data/wallets";
 import { PageHeader } from "@/components/page-header";
@@ -12,7 +13,12 @@ import { EntriesTable } from "./entries-table";
 export const metadata: Metadata = { title: "Entrées — D-Transfert" };
 
 export default async function EntriesPage() {
-  const [entries, wallets] = await Promise.all([listEntries(), listWallets()]);
+  const [entries, wallets, collaborations] = await Promise.all([
+    listEntries(),
+    listWallets(),
+    listCollaborations(),
+  ]);
+  const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,7 +37,7 @@ export default async function EntriesPage() {
         />
       ) : (
         <Card className="py-4">
-          <EntriesTable entries={entries} />
+          <EntriesTable entries={entries} collaborations={acceptedCollaborations} wallets={wallets} />
         </Card>
       )}
     </div>

@@ -28,24 +28,31 @@ export function CreatePaymentDialog({
   collaborations,
   entries,
   wallets,
+  defaultEntryId,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
   wallets: Wallet[];
+  /** Pré-sélectionne et verrouille une entrée (bouton "Transformer en paiement" depuis une entrée). */
+  defaultEntryId?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [source, setSource] = useState<Source>("none");
+  const [source, setSource] = useState<Source>(defaultEntryId ? "entry" : "none");
   const {
     register,
     handleSubmit,
     setValue,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreatePaymentFormValues>({ resolver: zodResolver(createPaymentSchema) });
+  } = useForm<CreatePaymentFormValues>({
+    resolver: zodResolver(createPaymentSchema),
+    defaultValues: { entry_id: defaultEntryId },
+  });
 
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
+  const lockedEntry = defaultEntryId ? entries.find((entry) => entry.id === defaultEntryId) : undefined;
 
   function changeSource(next: Source) {
     setSource(next);
@@ -62,20 +69,22 @@ export function CreatePaymentDialog({
     toast.success(`Paiement ${result.data.reference} créé.`);
     setOpen(false);
     reset();
-    setSource("none");
+    setSource(defaultEntryId ? "entry" : "none");
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={defaultEntryId ? "outline" : "default"} size={defaultEntryId ? "sm" : "default"}>
           <PlusIcon />
-          Nouveau paiement
+          {defaultEntryId ? "Transformer en paiement" : "Nouveau paiement"}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Créer un paiement collaborateur</DialogTitle>
+          <DialogTitle>
+            {defaultEntryId ? "Transformer l'entrée en paiement collaborateur" : "Créer un paiement collaborateur"}
+          </DialogTitle>
           <DialogDescription>
             Règle une dette existante (via une entrée) ou constitue un paiement direct depuis un wallet.
           </DialogDescription>
@@ -102,41 +111,57 @@ export function CreatePaymentDialog({
             )}
           </div>
 
-          <div className="grid gap-1.5">
-            <Label>Source des fonds</Label>
-            <div className="flex gap-2">
-              {(["none", "entry", "wallet"] as const).map((value) => (
-                <Button
-                  key={value}
-                  type="button"
-                  size="sm"
-                  variant={source === value ? "default" : "outline"}
-                  onClick={() => changeSource(value)}
-                >
-                  {value === "none" ? "Aucune" : value === "entry" ? "Depuis une entrée" : "Depuis un wallet"}
-                </Button>
-              ))}
+          {!defaultEntryId && (
+            <div className="grid gap-1.5">
+              <Label>Source des fonds</Label>
+              <div className="flex gap-2">
+                {(["none", "entry", "wallet"] as const).map((value) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={source === value ? "default" : "outline"}
+                    onClick={() => changeSource(value)}
+                  >
+                    {value === "none" ? "Aucune" : value === "entry" ? "Depuis une entrée" : "Depuis un wallet"}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {source === "entry" && (
             <div className="grid gap-1.5">
               <Label htmlFor="entry_id">Entrée</Label>
-              <select
-                id="entry_id"
-                {...register("entry_id")}
-                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-              >
-                <option value="">Choisir…</option>
-                {eligibleEntries.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.reference} —{" "}
-                    {Object.entries(entry.available_by_currency)
-                      .map(([currency, amount]) => `${amount} ${currency}`)
-                      .join(", ")}
-                  </option>
-                ))}
-              </select>
+              {defaultEntryId ? (
+                <>
+                  <div className="flex h-9 items-center rounded-md border border-input bg-muted px-2 text-sm text-muted-foreground">
+                    {lockedEntry?.reference ?? defaultEntryId} —{" "}
+                    {lockedEntry
+                      ? Object.entries(lockedEntry.available_by_currency)
+                          .map(([currency, amount]) => `${amount} ${currency}`)
+                          .join(", ")
+                      : ""}
+                  </div>
+                  <input type="hidden" {...register("entry_id")} />
+                </>
+              ) : (
+                <select
+                  id="entry_id"
+                  {...register("entry_id")}
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                >
+                  <option value="">Choisir…</option>
+                  {eligibleEntries.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.reference} —{" "}
+                      {Object.entries(entry.available_by_currency)
+                        .map(([currency, amount]) => `${amount} ${currency}`)
+                        .join(", ")}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 

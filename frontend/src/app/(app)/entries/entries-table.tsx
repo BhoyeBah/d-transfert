@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { mergeEntriesAction } from "@/actions/entries";
 import { formatDate, formatMoney } from "@/lib/format";
-import type { Entry } from "@/types/api";
+import type { Collaboration, Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,8 +19,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status-badge";
+import { CreatePaymentDialog } from "@/app/(app)/payments/create-payment-dialog";
+import { CreateTransferDialog } from "@/app/(app)/transfers/create-transfer-dialog";
 
 const MERGEABLE_STATUSES = new Set(["unallocated", "partially_allocated"]);
+const TRANSFORMABLE_STATUSES = new Set(["unallocated", "partially_allocated"]);
+
+function isTransformable(entry: Entry) {
+  return (
+    TRANSFORMABLE_STATUSES.has(entry.status) &&
+    !entry.merged_into_id &&
+    Object.keys(entry.available_by_currency).length > 0
+  );
+}
 
 function availableSummary(entry: Entry) {
   const parts = Object.entries(entry.available_by_currency).map(([currency, amount]) =>
@@ -38,7 +49,15 @@ function grossSummary(entry: Entry) {
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
-export function EntriesTable({ entries }: { entries: Entry[] }) {
+export function EntriesTable({
+  entries,
+  collaborations,
+  wallets,
+}: {
+  entries: Entry[];
+  collaborations: Collaboration[];
+  wallets: Wallet[];
+}) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -85,6 +104,7 @@ export function EntriesTable({ entries }: { entries: Entry[] }) {
             <TableHead className="text-right">Montant reçu</TableHead>
             <TableHead className="text-right">Disponible</TableHead>
             <TableHead>Date</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -111,6 +131,28 @@ export function EntriesTable({ entries }: { entries: Entry[] }) {
               <TableCell className="text-right tabular-nums">{grossSummary(entry)}</TableCell>
               <TableCell className="text-right font-medium tabular-nums">{availableSummary(entry)}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  {isTransformable(entry) && (
+                    <>
+                      <CreateTransferDialog
+                        collaborations={collaborations}
+                        entries={[entry]}
+                        defaultEntryId={entry.id}
+                      />
+                      <CreatePaymentDialog
+                        collaborations={collaborations}
+                        entries={[entry]}
+                        wallets={wallets}
+                        defaultEntryId={entry.id}
+                      />
+                    </>
+                  )}
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={`/entries/${entry.id}`}>Voir</Link>
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
