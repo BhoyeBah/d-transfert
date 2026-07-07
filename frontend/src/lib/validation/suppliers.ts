@@ -3,8 +3,17 @@ import { z } from "zod";
 export const SUPPLIER_MOVEMENT_TYPES = ["debt", "payment"] as const;
 
 export const supplierMovementTypeLabels: Record<(typeof SUPPLIER_MOVEMENT_TYPES)[number], string> = {
-  debt: "Dette",
-  payment: "Paiement",
+  debt: "Le fournisseur recharge le wallet (dette envers lui)",
+  payment: "Vous remboursez le fournisseur (sortie du wallet)",
+};
+
+export const supplierMovementTypeHints: Record<(typeof SUPPLIER_MOVEMENT_TYPES)[number], string> = {
+  debt:
+    "Le fournisseur vous a remis du cash ou du mobile money sans que vous le régliez immédiatement : " +
+    "le wallet choisi augmente du montant, et vous devez désormais ce montant en plus au fournisseur.",
+  payment:
+    "Vous réglez le fournisseur (en espèces ou mobile money) depuis un de vos wallets : le wallet " +
+    "choisi diminue du montant, et votre dette envers le fournisseur se réduit d'autant.",
 };
 
 export const createSupplierSchema = z.object({

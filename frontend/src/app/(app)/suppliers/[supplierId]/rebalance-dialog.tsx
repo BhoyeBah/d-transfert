@@ -10,6 +10,7 @@ import { rebalanceSupplierAction } from "@/actions/suppliers";
 import {
   SUPPLIER_MOVEMENT_TYPES,
   rebalanceSupplierSchema,
+  supplierMovementTypeHints,
   supplierMovementTypeLabels,
   type RebalanceSupplierFormValues,
 } from "@/lib/validation/suppliers";
@@ -65,7 +66,7 @@ export function RebalanceSupplierDialog({ supplierId, wallets }: { supplierId: s
       <DialogTrigger asChild>
         <Button size="sm">Nouveau mouvement</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Dette ou paiement fournisseur</DialogTitle>
         </DialogHeader>
@@ -90,6 +91,7 @@ export function RebalanceSupplierDialog({ supplierId, wallets }: { supplierId: s
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">{supplierMovementTypeHints[type]}</p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="wallet_id">Wallet</Label>
