@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ScrollText } from "lucide-react";
 
 import { listEntries } from "@/lib/data/entries";
 import { listWallets } from "@/lib/data/wallets";
@@ -22,7 +23,12 @@ export default async function EntriesPage() {
       />
 
       {entries.length === 0 ? (
-        <EmptyState message="Aucune entrée enregistrée." />
+        <EmptyState
+          icon={ScrollText}
+          title="Aucune entrée"
+          message="Enregistrez l'argent reçu d'un client pour ensuite le transformer en envoi ou en paiement collaborateur."
+          action={<CreateEntryDialog wallets={wallets} />}
+        />
       ) : (
         <Card className="py-4">
           <EntriesTable entries={entries} />

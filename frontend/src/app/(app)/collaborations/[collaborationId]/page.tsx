@@ -9,7 +9,8 @@ import {
   listPrivateRates,
 } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { BalanceCard } from "@/components/balance-card";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,10 +65,13 @@ export default async function CollaborationDetailPage({
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">
-              Collaboration en {collaboration.currency}
+            <h1 className="text-xl font-semibold tracking-tight">
+              {collaboration.counterparty_company_name}
             </h1>
-            <p className="text-sm text-muted-foreground">{collaboration.note ?? "Aucune note."}</p>
+            <p className="text-sm text-muted-foreground">
+              {collaboration.counterparty_company_matricule} · {collaboration.currency}
+              {collaboration.note ? ` · ${collaboration.note}` : ""}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={collaboration.status} />
@@ -80,22 +84,13 @@ export default async function CollaborationDetailPage({
 
       {collaboration.status === "accepted" && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Card className="py-4">
-            <CardContent className="px-4">
-              <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Solde collaborateur
-              </span>
-              {balance && (
-                <p
-                  className={`text-2xl font-semibold tabular-nums ${
-                    Number(balance.balance) < 0 ? "text-destructive" : "text-success"
-                  }`}
-                >
-                  {formatMoney(balance.balance, balance.currency)}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {balance && (
+            <BalanceCard
+              counterpartyName={collaboration.counterparty_company_name}
+              balance={balance.balance}
+              currency={balance.currency}
+            />
+          )}
           <Card className="py-4">
             <CardContent className="flex items-center justify-between px-4">
               <div>

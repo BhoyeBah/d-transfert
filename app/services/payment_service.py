@@ -123,6 +123,10 @@ async def create_payment(
                     f"({available_for_currency} {payload.currency} disponible) : un client "
                     "(nom et téléphone) est requis pour enregistrer la dette du manquant."
                 )
+    elif payload.client_name and payload.client_phone:
+        # Paiement direct (sans entrée) : aucun montant n'a été reçu via une entrée, donc si un
+        # client est renseigné, la totalité du montant est une dette du client envers l'entreprise.
+        client_debt_amount = _quantize(payload.amount)
 
     wallet = None
     if payload.wallet_id is not None:
@@ -141,8 +145,8 @@ async def create_payment(
 
     client = None
     if client_debt_amount > 0:
-        client_name = payload.client_name or entry.client_name
-        client_phone = payload.client_phone or entry.client_phone
+        client_name = payload.client_name or (entry.client_name if entry is not None else None)
+        client_phone = payload.client_phone or (entry.client_phone if entry is not None else None)
         client = await client_service.get_or_create_client(session, company_id, client_name, client_phone)
 
     reference = await _generate_unique_reference(session)
@@ -320,6 +324,43 @@ async def reject_payment(
         f"Votre paiement {payment.reference} a été rejeté : {reason}",
         link_type="payment",
         link_id=payment.id,
+    )
+    await session.commit()
+    return payment
+
+
+async def cancel_payment(
+    session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, payment_id: uuid.UUID
+) -> Payment:
+    payment, _collaboration = await _get_payment_for_party(session, company_id, payment_id, for_update=True)
+
+    if payment.company_id != company_id:
+        raise PermissionDeniedError("Seule l'entreprise à l'origine du paiement peut l'annuler.")
+    if payment.status != PaymentStatus.PENDING:
+        raise ConflictError("Ce paiement n'est plus en attente.")
+
+    old_status = payment.status
+    payment.status = PaymentStatus.CANCELLED
+
+    if payment.entry_id is not None:
+        allocation = await entry_repository.get_allocation_by_target(
+            session, EntryAllocationTargetType.PAYMENT, payment.id
+        )
+        if allocation is not None:
+            await session.delete(allocation)
+            await session.flush()
+        entry, lines, allocations = await entry_service.get_entry(session, payment.company_id, payment.entry_id)
+        entry.status = entry_service.recompute_status(lines, allocations)
+
+    history = PaymentStatusHistory(
+        payment_id=payment.id,
+        old_status=old_status,
+        new_status=PaymentStatus.CANCELLED,
+        company_id=company_id,
+    )
+    session.add(history)
+    await audit_service.log_action(
+        session, company_id, acted_by_user_id, "payment.cancel", "payment", payment.id
     )
     await session.commit()
     return payment

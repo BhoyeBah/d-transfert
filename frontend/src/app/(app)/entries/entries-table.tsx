@@ -29,6 +29,15 @@ function availableSummary(entry: Entry) {
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
+function grossSummary(entry: Entry) {
+  const totals = new Map<string, number>();
+  for (const line of entry.lines) {
+    totals.set(line.currency, (totals.get(line.currency) ?? 0) + Number(line.amount));
+  }
+  const parts = [...totals.entries()].map(([currency, amount]) => formatMoney(amount, currency));
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
+
 export function EntriesTable({ entries }: { entries: Entry[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -73,6 +82,7 @@ export function EntriesTable({ entries }: { entries: Entry[] }) {
             <TableHead>Référence</TableHead>
             <TableHead>Statut</TableHead>
             <TableHead>Client</TableHead>
+            <TableHead className="text-right">Montant reçu</TableHead>
             <TableHead className="text-right">Disponible</TableHead>
             <TableHead>Date</TableHead>
           </TableRow>
@@ -98,7 +108,8 @@ export function EntriesTable({ entries }: { entries: Entry[] }) {
                 <StatusBadge status={entry.status} />
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{entry.client_name ?? "—"}</TableCell>
-              <TableCell className="text-right tabular-nums">{availableSummary(entry)}</TableCell>
+              <TableCell className="text-right tabular-nums">{grossSummary(entry)}</TableCell>
+              <TableCell className="text-right font-medium tabular-nums">{availableSummary(entry)}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
             </TableRow>
           ))}

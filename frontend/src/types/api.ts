@@ -13,6 +13,8 @@ export type CompanyMe = {
 export type CollaboratorBalanceSummary = {
   collaboration_id: string;
   collaborator_company_id: string;
+  collaborator_company_name: string;
+  collaborator_company_matricule: string;
   currency: string;
   balance: string;
 };
@@ -158,6 +160,8 @@ export type Collaboration = {
   id: string;
   initiator_company_id: string;
   target_company_id: string;
+  counterparty_company_name: string;
+  counterparty_company_matricule: string;
   currency: string;
   status: CollaborationStatus;
   note: string | null;
@@ -231,6 +235,21 @@ export type TransferStatusHistoryEntry = {
   new_status: TransferStatus;
   company_id: string;
   reason: string | null;
+  created_at: string;
+};
+
+// --- Proofs ---
+
+export type Proof = {
+  id: string;
+  transfer_id: string | null;
+  payment_id: string | null;
+  company_id: string;
+  uploaded_by_id: string;
+  file_name: string;
+  content_type: string;
+  file_size: number;
+  note: string | null;
   created_at: string;
 };
 

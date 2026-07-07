@@ -197,6 +197,55 @@ async def test_transfer_exceeding_entry_available_without_client_rejected(client
     assert "client" in response.json()["detail"]
 
 
+async def test_direct_transfer_without_entry_with_client_creates_full_debt(client):
+    collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
+
+    response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+            "client_name": "Bhoye",
+            "client_phone": "+224600011122",
+        },
+        headers=_auth_headers(token_a),
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["client_debt_amount"] == "80000.00"
+    assert body["client_id"] is not None
+
+    clients_response = await client.get("/api/v1/clients", headers=_auth_headers(token_a))
+    clients = clients_response.json()
+    assert len(clients) == 1
+    assert clients[0]["id"] == body["client_id"]
+    assert clients[0]["phone"] == "+224600011122"
+    assert clients[0]["balance"] == "80000.00"
+
+
+async def test_direct_transfer_without_entry_and_without_client_has_no_debt(client):
+    collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
+
+    response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(token_a),
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["client_debt_amount"] is None
+    assert body["client_id"] is None
+
+
 async def test_only_collaborator_can_approve_and_balance_updates(client):
     collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
 
@@ -280,6 +329,84 @@ async def test_reject_transfer_reverts_entry_and_leaves_balance_untouched(client
         f"/api/v1/collaborations/{collaboration_id}/balance", headers=_auth_headers(token_a)
     )
     assert balance_a.json()["balance"] == "0"
+
+
+async def test_creator_can_cancel_pending_transfer_and_entry_reverts(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+    cash_id = await _create_wallet(client, token_a, "CASH")
+    entry = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "85000", "currency": "GNF"}]},
+        headers=_auth_headers(token_a),
+    )
+    entry_id = entry.json()["id"]
+
+    create_response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "entry_id": entry_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(token_a),
+    )
+    transfer_id = create_response.json()["id"]
+
+    cancel_response = await client.post(
+        f"/api/v1/transfers/{transfer_id}/cancel", headers=_auth_headers(token_a)
+    )
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "cancelled"
+
+    entry_after = await client.get(f"/api/v1/entries/{entry_id}", headers=_auth_headers(token_a))
+    assert entry_after.json()["status"] == "unallocated"
+    assert entry_after.json()["available_by_currency"] == {"GNF": "85000.00"}
+
+
+async def test_counterparty_cannot_cancel_transfer(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+    create_response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(token_a),
+    )
+    transfer_id = create_response.json()["id"]
+
+    response = await client.post(
+        f"/api/v1/transfers/{transfer_id}/cancel", headers=_auth_headers(token_b)
+    )
+    assert response.status_code == 403
+
+
+async def test_approved_transfer_cannot_be_cancelled(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+    create_response = await client.post(
+        "/api/v1/transfers",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "beneficiary_phone": "+224600000099",
+            "send_mode": "cash",
+        },
+        headers=_auth_headers(token_a),
+    )
+    transfer_id = create_response.json()["id"]
+    await client.post(f"/api/v1/transfers/{transfer_id}/approve", json={}, headers=_auth_headers(token_b))
+
+    response = await client.post(
+        f"/api/v1/transfers/{transfer_id}/cancel", headers=_auth_headers(token_a)
+    )
+    assert response.status_code == 409
 
 
 async def test_reject_requires_reason(client):

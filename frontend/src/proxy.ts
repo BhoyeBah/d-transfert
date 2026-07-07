@@ -5,7 +5,7 @@ import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, useSecureCookies } from "@/l
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://127.0.0.1:8000";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
 
 const REFRESH_MARGIN_SECONDS = 60;
 

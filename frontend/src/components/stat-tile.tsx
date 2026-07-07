@@ -13,7 +13,7 @@ export function StatTile({
   label: string;
   value: React.ReactNode;
   icon?: LucideIcon;
-  tone?: "default" | "warning" | "destructive" | "success";
+  tone?: "default" | "warning" | "destructive" | "success" | "pending";
   hint?: string;
 }) {
   return (
@@ -28,7 +28,8 @@ export function StatTile({
               "text-2xl font-semibold tabular-nums",
               tone === "warning" && "text-warning",
               tone === "destructive" && "text-destructive",
-              tone === "success" && "text-success"
+              tone === "success" && "text-success",
+              tone === "pending" && "text-pending"
             )}
           >
             {value}
@@ -41,7 +42,8 @@ export function StatTile({
               "flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground",
               tone === "warning" && "bg-warning/15 text-warning",
               tone === "destructive" && "bg-destructive/10 text-destructive",
-              tone === "success" && "bg-success/15 text-success"
+              tone === "success" && "bg-success/15 text-success",
+              tone === "pending" && "bg-pending/10 text-pending"
             )}
           >
             <Icon className="size-4.5" />

@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 
 import { getEntry } from "@/lib/data/entries";
 import { formatDate, formatMoney } from "@/lib/format";
+import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +38,7 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-mono text-lg font-semibold tracking-tight">{entry.reference}</h1>
+            <h1 className="font-mono text-xl font-semibold tracking-tight">{entry.reference}</h1>
             <p className="text-sm text-muted-foreground">
               {entry.client_name ?? "Client non renseigné"} · {formatDate(entry.created_at)}
             </p>
@@ -80,7 +81,7 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
 
         <Card>
           <CardHeader>
-            <CardTitle>Disponible</CardTitle>
+            <CardTitle>Montant restant disponible</CardTitle>
           </CardHeader>
           <CardContent>
             {Object.entries(entry.available_by_currency).length === 0 ? (
@@ -90,7 +91,7 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
                 {Object.entries(entry.available_by_currency).map(([currency, amount]) => (
                   <div key={currency} className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">{currency}</span>
-                    <span className="font-medium tabular-nums">{formatMoney(amount, currency)}</span>
+                    <AmountDisplay value={amount} currency={currency} size="md" />
                   </div>
                 ))}
               </div>
