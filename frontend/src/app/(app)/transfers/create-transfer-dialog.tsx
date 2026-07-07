@@ -116,6 +116,8 @@ export function CreateTransferDialog({
               <option value="">Choisir…</option>
               {collaborations.map((collaboration) => (
                 <option key={collaboration.id} value={collaboration.id}>
+                  {collaboration.counterparty_company_name} ({collaboration.counterparty_company_matricule})
+                  {" · "}
                   {collaboration.currency} · taux {collaboration.current_rate}
                 </option>
               ))}
