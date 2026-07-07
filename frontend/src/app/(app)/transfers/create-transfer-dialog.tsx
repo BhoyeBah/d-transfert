@@ -17,6 +17,7 @@ import {
 } from "@/lib/validation/transfers";
 import type { Collaboration, Entry } from "@/types/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export function CreateTransferDialog({
   entries: Entry[];
 }) {
   const [open, setOpen] = useState(false);
+  const [hasClientDebt, setHasClientDebt] = useState(false);
   const {
     register,
     handleSubmit,
@@ -63,6 +65,12 @@ export function CreateTransferDialog({
   const entryId = watch("entry_id");
 
   async function onSubmit(values: CreateTransferFormValues) {
+    if (!hasClientDebt) {
+      values = { ...values, client_name: undefined, client_phone: undefined };
+    } else if (!values.client_name || !values.client_phone) {
+      toast.error("Nom et téléphone du client requis pour enregistrer la dette.");
+      return;
+    }
     const result = await createTransferAction(values);
     if (!result.ok) {
       toast.error(result.message);
@@ -71,10 +79,19 @@ export function CreateTransferDialog({
     toast.success(`Envoi ${result.data.reference} créé.`);
     setOpen(false);
     reset();
+    setHasClientDebt(false);
+  }
+
+  function onOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      reset();
+      setHasClientDebt(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <PlusIcon />
@@ -192,20 +209,35 @@ export function CreateTransferDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="client_name">Client (si le client vous doit ce montant)</Label>
-              <Input id="client_name" {...register("client_name")} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="client_phone">Téléphone client</Label>
-              <Input id="client_phone" {...register("client_phone")} />
-            </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="has_client_debt"
+              checked={hasClientDebt}
+              onCheckedChange={(checked) => setHasClientDebt(checked === true)}
+            />
+            <Label htmlFor="has_client_debt" className="font-normal">
+              Un client doit ce montant (dette client)
+            </Label>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Sans entrée sélectionnée, renseigner un client enregistre une dette client pour la
-            totalité du montant. Avec une entrée, seul le manquant devient une dette client.
-          </p>
+
+          {hasClientDebt && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="client_name">Nom du client</Label>
+                  <Input id="client_name" {...register("client_name")} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="client_phone">Téléphone client</Label>
+                  <Input id="client_phone" {...register("client_phone")} />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sans entrée sélectionnée, la totalité du montant devient une dette client. Avec une
+                entrée, seul le manquant (montant déclaré &gt; disponible) devient une dette client.
+              </p>
+            </>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="note">Note (optionnel)</Label>
             <Input id="note" {...register("note")} />
