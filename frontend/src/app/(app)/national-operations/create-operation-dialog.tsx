@@ -62,6 +62,7 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
   const firstLineDirection = watch("lines.0.direction");
   const firstLineWalletId = watch("lines.0.wallet_id");
   const secondLineWalletId = watch("lines.1.wallet_id");
+  const allLines = watch("lines");
   const exchangeRate = watch("exchange_rate");
   const isSimplePair = fields.length === 2;
 
@@ -154,6 +155,15 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
             {errors.lines?.root && <p className="text-sm text-destructive">{errors.lines.root.message}</p>}
             {fields.map((field, index) => {
               const isLockedSecondLine = isSimplePair && index === 1;
+              const walletUsedElsewhere = new Set(
+                allLines
+                  .filter((_, otherIndex) => otherIndex !== index)
+                  .map((line) => line.wallet_id)
+                  .filter(Boolean)
+              );
+              const availableWallets = wallets.filter(
+                (wallet) => wallet.id === allLines[index]?.wallet_id || !walletUsedElsewhere.has(wallet.id)
+              );
               return (
               <div key={field.id} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border border-border p-3">
                 <div className="grid gap-1">
@@ -173,7 +183,7 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
                     className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
                   >
                     <option value="">Choisir…</option>
-                    {wallets.map((wallet) => (
+                    {availableWallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>
                         {wallet.name} ({wallet.currency})
                       </option>
