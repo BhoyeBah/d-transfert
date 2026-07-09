@@ -1,10 +1,21 @@
 import "server-only";
 
 import { serverFetch } from "@/lib/api";
-import type { Proof, Transfer, TransferStatusHistoryEntry } from "@/types/api";
+import { buildPageQuery, type DataTableParams } from "@/lib/data-table";
+import type { Page, Proof, Transfer, TransferStatusHistoryEntry } from "@/types/api";
 
 export async function listTransfers(): Promise<Transfer[]> {
   return serverFetch<Transfer[]>("/api/v1/transfers");
+}
+
+export async function listTransfersPage(params: DataTableParams): Promise<Page<Transfer>> {
+  const query = buildPageQuery({
+    page: params.page,
+    search: params.search,
+    sort_by: params.sortBy,
+    sort_dir: params.sortDir,
+  });
+  return serverFetch<Page<Transfer>>(`/api/v1/transfers/page${query}`);
 }
 
 export async function getTransfer(transferId: string): Promise<Transfer> {

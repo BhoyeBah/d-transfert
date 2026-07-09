@@ -1,10 +1,21 @@
 import "server-only";
 
 import { serverFetch } from "@/lib/api";
-import type { Payment, PaymentStatusHistoryEntry, Proof } from "@/types/api";
+import { buildPageQuery, type DataTableParams } from "@/lib/data-table";
+import type { Page, Payment, PaymentStatusHistoryEntry, Proof } from "@/types/api";
 
 export async function listPayments(): Promise<Payment[]> {
   return serverFetch<Payment[]>("/api/v1/payments");
+}
+
+export async function listPaymentsPage(params: DataTableParams): Promise<Page<Payment>> {
+  const query = buildPageQuery({
+    page: params.page,
+    search: params.search,
+    sort_by: params.sortBy,
+    sort_dir: params.sortDir,
+  });
+  return serverFetch<Page<Payment>>(`/api/v1/payments/page${query}`);
 }
 
 export async function getPayment(paymentId: string): Promise<Payment> {
