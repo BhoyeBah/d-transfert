@@ -7,6 +7,11 @@ from app.models.role import OverrideEffect, Permission, RolePermission, UserPerm
 from app.models.user import User
 from app.utils.pagination import paginate
 
+_SORTABLE_COLUMNS = {
+    "full_name": User.full_name,
+    "created_at": User.created_at,
+}
+
 _SUPER_ADMIN_SORTABLE_COLUMNS = {
     "full_name": User.full_name,
     "phone": User.phone,
@@ -69,6 +74,26 @@ async def list_by_company(session: AsyncSession, company_id: uuid.UUID) -> list[
         select(User).where(User.company_id == company_id, User.is_owner.is_(False))
     )
     return list(result.scalars().all())
+
+
+async def list_by_company_page(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_dir: str = "desc",
+) -> tuple[list[User], int]:
+    stmt = select(User).where(User.company_id == company_id, User.is_owner.is_(False))
+    if search:
+        pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(User.full_name.ilike(pattern), User.phone.ilike(pattern), User.matricule.ilike(pattern))
+        )
+    column = _SORTABLE_COLUMNS.get(sort_by, User.created_at)
+    stmt = stmt.order_by(column.asc() if sort_dir == "asc" else column.desc())
+    return await paginate(session, stmt, page, page_size)
 
 
 async def count_employees_by_company(session: AsyncSession, company_id: uuid.UUID) -> int:
