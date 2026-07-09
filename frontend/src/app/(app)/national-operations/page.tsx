@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateOperationDialog } from "./create-operation-dialog";
+import { OperationRowActions } from "./operation-row-actions";
 
 export const metadata: Metadata = { title: "Opérations nationales — D-Transfert" };
 
@@ -60,6 +61,7 @@ export default async function NationalOperationsPage() {
                 <TableHead>Client (téléphone)</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -91,6 +93,9 @@ export default async function NationalOperationsPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(operation.created_at)}
+                  </TableCell>
+                  <TableCell>
+                    <OperationRowActions operationId={operation.id} status={operation.status} />
                   </TableCell>
                 </TableRow>
               ))}
