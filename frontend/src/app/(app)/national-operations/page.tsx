@@ -3,8 +3,9 @@ import Link from "next/link";
 
 import { listNationalOperations } from "@/lib/data/national-operations";
 import { listWallets } from "@/lib/data/wallets";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { nationalOperationTypeLabels } from "@/lib/validation/national-operations";
+import type { NationalOperation } from "@/types/api";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -20,6 +21,20 @@ import {
 import { CreateOperationDialog } from "./create-operation-dialog";
 
 export const metadata: Metadata = { title: "Opérations nationales — D-Transfert" };
+
+function operationAmountByCurrency(operation: NationalOperation): string {
+  const totals = new Map<string, number>();
+  for (const line of operation.lines) {
+    const amountIn = Number(line.amount_in);
+    if (amountIn > 0) {
+      totals.set(line.currency, (totals.get(line.currency) ?? 0) + amountIn);
+    }
+  }
+  if (totals.size === 0) return "—";
+  return Array.from(totals.entries())
+    .map(([currency, amount]) => formatMoney(amount, currency))
+    .join(" · ");
+}
 
 export default async function NationalOperationsPage() {
   const [operations, wallets] = await Promise.all([listNationalOperations(), listWallets()]);
@@ -42,7 +57,8 @@ export default async function NationalOperationsPage() {
                 <TableHead>Référence</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead>Client</TableHead>
+                <TableHead>Client (téléphone)</TableHead>
+                <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
@@ -59,7 +75,19 @@ export default async function NationalOperationsPage() {
                     <StatusBadge status={operation.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {operation.client_name ?? "—"}
+                    {operation.client_name ? (
+                      <>
+                        {operation.client_name}
+                        {operation.client_phone && (
+                          <span className="text-xs"> ({operation.client_phone})</span>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {operationAmountByCurrency(operation)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(operation.created_at)}
