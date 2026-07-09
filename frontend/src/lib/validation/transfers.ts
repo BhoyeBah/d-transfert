@@ -21,15 +21,15 @@ export const reliquatActionLabels: Record<(typeof RELIQUAT_ACTIONS)[number], str
 export const createTransferSchema = z.object({
   collaboration_id: z.string().min(1, "Collaboration requise."),
   entry_id: z.string().optional(),
-  amount: z.number().gt(0, "Montant requis."),
-  currency: z.string().min(3).max(8),
+  amount: z.number("Montant invalide.").gt(0, "Montant requis."),
+  currency: z.string("Devise requise.").min(3, "Devise invalide.").max(8, "Devise invalide."),
   beneficiary_name: z.string().max(255).optional(),
   beneficiary_phone: z.string().min(1, "Téléphone du bénéficiaire requis."),
-  send_mode: z.enum(SEND_MODES),
+  send_mode: z.enum(SEND_MODES, { message: "Mode d'envoi invalide." }),
   note: z.string().max(255).optional(),
   client_name: z.string().max(255).optional(),
   client_phone: z.string().max(32).optional(),
-  reliquat_action: z.enum(RELIQUAT_ACTIONS).optional(),
+  reliquat_action: z.enum(RELIQUAT_ACTIONS, { message: "Traitement du reliquat invalide." }).optional(),
 });
 
 export type CreateTransferFormValues = z.infer<typeof createTransferSchema>;

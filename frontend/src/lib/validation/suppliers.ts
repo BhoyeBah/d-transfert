@@ -21,14 +21,14 @@ export const createSupplierSchema = z.object({
   code: z.string().min(2, "2 caractères minimum.").max(32),
   phone: z.string().max(32).optional(),
   address: z.string().max(255).optional(),
-  currency: z.string().min(3).max(8),
-  initial_balance: z.coerce.number().default(0),
+  currency: z.string("Devise requise.").min(3, "Devise invalide.").max(8, "Devise invalide."),
+  initial_balance: z.coerce.number("Montant invalide.").default(0),
   note: z.string().max(255).optional(),
 });
 
 export const rebalanceSupplierSchema = z.object({
-  type: z.enum(SUPPLIER_MOVEMENT_TYPES),
-  amount: z.number().gt(0, "Montant requis."),
+  type: z.enum(SUPPLIER_MOVEMENT_TYPES, { message: "Type de mouvement invalide." }),
+  amount: z.number("Montant invalide.").gt(0, "Montant requis."),
   wallet_id: z.string().min(1, "Wallet requis."),
   note: z.string().max(255).optional(),
 });
