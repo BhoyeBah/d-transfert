@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Banknote, Landmark, Smartphone, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 
 import { getCompanyMe } from "@/lib/data/company";
-import { listWallets } from "@/lib/data/wallets";
+import { listWalletsPage } from "@/lib/data/wallets";
+import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { walletTypeLabels } from "@/lib/validation/wallets";
 import type { WalletType } from "@/types/api";
 import { AmountDisplay } from "@/components/amount-display";
@@ -12,6 +13,9 @@ import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataTablePagination } from "@/components/data-table/pagination";
+import { DataTableSearchForm } from "@/components/data-table/search-form";
+import { SortableHeader } from "@/components/data-table/sortable-header";
 import {
   Table,
   TableBody,
@@ -31,8 +35,17 @@ const WALLET_TYPE_ICONS: Record<WalletType, LucideIcon> = {
   other: WalletIcon,
 };
 
-export default async function WalletsPage() {
-  const [wallets, company] = await Promise.all([listWallets(), getCompanyMe()]);
+export default async function WalletsPage({
+  searchParams,
+}: {
+  searchParams: Promise<DataTableSearchParams>;
+}) {
+  const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
+  const [walletsPage, company] = await Promise.all([
+    listWalletsPage({ page, search, sortBy, sortDir }),
+    getCompanyMe(),
+  ]);
+  const wallets = walletsPage.items;
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,7 +55,7 @@ export default async function WalletsPage() {
         action={<CreateWalletDialog defaultCurrency={company.default_currency} />}
       />
 
-      {wallets.length === 0 ? (
+      {walletsPage.total === 0 && !search ? (
         <EmptyState
           icon={WalletIcon}
           title="Aucun wallet"
@@ -50,52 +63,74 @@ export default async function WalletsPage() {
           action={<CreateWalletDialog defaultCurrency={company.default_currency} />}
         />
       ) : (
-        <Card className="py-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Solde</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {wallets.map((wallet) => {
-                const Icon = WALLET_TYPE_ICONS[wallet.type];
-                return (
-                  <TableRow key={wallet.id}>
-                    <TableCell className="font-medium">
-                      <span className="flex items-center gap-2">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                          <Icon className="size-3.5" />
-                        </span>
-                        {wallet.name}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{wallet.code}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {walletTypeLabels[wallet.type]}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={wallet.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <AmountDisplay value={wallet.balance} currency={wallet.currency} size="sm" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/wallets/${wallet.id}`}>Détail</Link>
-                      </Button>
-                    </TableCell>
+        <div className="flex flex-col gap-4">
+          <DataTableSearchForm defaultValue={search} sortBy={sortBy} sortDir={sortDir} placeholder="Rechercher un wallet…" />
+          <Card className="py-0">
+            {wallets.length === 0 ? (
+              <EmptyState message="Aucun wallet ne correspond à cette recherche." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableHeader column="name" label="Nom" currentSort={sortBy} currentDir={sortDir} search={search} />
+                    <SortableHeader column="code" label="Code" currentSort={sortBy} currentDir={sortDir} search={search} />
+                    <TableHead>Type</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <SortableHeader
+                      column="balance"
+                      label="Solde"
+                      currentSort={sortBy}
+                      currentDir={sortDir}
+                      search={search}
+                      className="text-right"
+                    />
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {wallets.map((wallet) => {
+                    const Icon = WALLET_TYPE_ICONS[wallet.type];
+                    return (
+                      <TableRow key={wallet.id}>
+                        <TableCell className="font-medium">
+                          <span className="flex items-center gap-2">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                              <Icon className="size-3.5" />
+                            </span>
+                            {wallet.name}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{wallet.code}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {walletTypeLabels[wallet.type]}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={wallet.status} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <AmountDisplay value={wallet.balance} currency={wallet.currency} size="sm" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/wallets/${wallet.id}`}>Détail</Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+            <DataTablePagination
+              page={walletsPage.page}
+              pageSize={walletsPage.page_size}
+              total={walletsPage.total}
+              search={search}
+              sortBy={sortBy}
+              sortDir={sortDir}
+            />
+          </Card>
+        </div>
       )}
     </div>
   );
