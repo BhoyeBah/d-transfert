@@ -11,7 +11,8 @@ export type NavIconName =
   | "users"
   | "truck"
   | "file-clock"
-  | "shield-check";
+  | "shield-check"
+  | "bell";
 
 export type NavItem = {
   href: string;
@@ -23,6 +24,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: "dashboard", requiredPermission: null },
+  { href: "/notifications", label: "Notifications", icon: "bell", requiredPermission: null },
   { href: "/wallets", label: "Wallets", icon: "wallet", requiredPermission: PermissionCode.WALLET_MANAGE },
   {
     href: "/national-operations",

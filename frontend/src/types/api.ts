@@ -19,6 +19,11 @@ export type CollaboratorBalanceSummary = {
   balance: string;
 };
 
+export type DashboardAlert = {
+  severity: "info" | "warning" | "critical";
+  message: string;
+};
+
 export type DashboardResponse = {
   wallets_balance_by_currency: Record<string, string>;
   collaborator_balances: CollaboratorBalanceSummary[];
@@ -34,6 +39,16 @@ export type DashboardResponse = {
   clients_total_balance: string;
   suppliers_total_balance: string;
   unread_notifications_count: number;
+  alerts: DashboardAlert[];
+};
+
+export type EmployeeDashboard = {
+  entries_created_today_count: number;
+  transfers_initiated_today_count: number;
+  payments_initiated_today_count: number;
+  own_pending_transfers_count: number;
+  own_pending_payments_count: number;
+  wallets_count: number;
 };
 
 export type NotificationItem = {
@@ -102,6 +117,7 @@ export type NationalOperation = {
   client_name: string | null;
   client_phone: string | null;
   note: string | null;
+  exchange_rate: string | null;
   proof_id: string | null;
   created_by_id: string;
   validated_at: string | null;
@@ -191,6 +207,7 @@ export type PrivateRate = {
   id: string;
   collaboration_id: string | null;
   country: string | null;
+  operation_type: SendMode | null;
   currency: string;
   rate: string;
   is_active: boolean;
@@ -240,6 +257,8 @@ export type TransferStatusHistoryEntry = {
 
 // --- Proofs ---
 
+export type ProofStatus = "pending" | "validated" | "rejected";
+
 export type Proof = {
   id: string;
   transfer_id: string | null;
@@ -250,6 +269,7 @@ export type Proof = {
   content_type: string;
   file_size: number;
   note: string | null;
+  status: ProofStatus;
   created_at: string;
 };
 
@@ -372,6 +392,90 @@ export type DailyReport = {
   payments_rejected_count: number;
 };
 
+export type MonthlyReport = {
+  month: string;
+  deposits_count: number;
+  withdrawals_count: number;
+  exchanges_count: number;
+  rebalances_count: number;
+  entries_count: number;
+  entries_total_by_currency: Record<string, string>;
+  transfers_created_count: number;
+  transfers_approved_count: number;
+  transfers_rejected_count: number;
+  payments_created_count: number;
+  payments_approved_count: number;
+  payments_rejected_count: number;
+};
+
+export type TransactionReportRow = {
+  kind: string;
+  reference: string;
+  type_or_mode: string;
+  amount: string | null;
+  currency: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type WalletMovementReportRow = {
+  id: string;
+  direction: string;
+  amount: string;
+  currency: string;
+  balance_before: string;
+  balance_after: string;
+  source_type: string;
+  source_id: string;
+  note: string | null;
+  created_at: string;
+};
+
+export type EmployeeActivityRow = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type SupplierMovementReportRow = {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  reference: string;
+  type: string;
+  amount: string;
+  balance_after: string;
+  created_at: string;
+};
+
+export type ClientMovementReportRow = {
+  id: string;
+  client_id: string;
+  client_name: string;
+  delta: string;
+  balance_after: string;
+  source_type: string;
+  created_at: string;
+};
+
+export type FeeReportRow = {
+  source_type: string;
+  source_id: string | null;
+  amount: string;
+  currency: string;
+  created_at: string;
+};
+
+export type RejectedOperationReportRow = {
+  kind: string;
+  reference: string;
+  reason: string | null;
+  created_at: string;
+};
+
 export type AuditLogEntry = {
   id: string;
   company_id: string | null;
@@ -445,6 +549,7 @@ export type PlatformSettings = {
   supported_currencies: string[];
   max_transaction_amount: string | null;
   maintenance_mode: boolean;
+  require_company_approval: boolean;
 };
 
 export type SubscriptionPlan = "free" | "standard" | "premium";

@@ -52,8 +52,19 @@ export default async function SupplierDetailPage({
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Solde
               </span>
-              <p className="text-2xl font-semibold tabular-nums">
+              <p
+                className={`text-2xl font-semibold tabular-nums ${
+                  Number(supplier.balance) < 0 ? "text-destructive" : ""
+                }`}
+              >
                 {formatMoney(supplier.balance, supplier.currency)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {Number(supplier.balance) < 0
+                  ? "Vous devez ce montant au fournisseur."
+                  : Number(supplier.balance) > 0
+                    ? "Le fournisseur vous doit ce montant."
+                    : "Solde équilibré."}
               </p>
             </div>
             <RebalanceSupplierDialog supplierId={supplier.id} wallets={wallets} />

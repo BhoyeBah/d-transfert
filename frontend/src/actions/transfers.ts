@@ -30,6 +30,7 @@ export async function createTransferAction(
         note: parsed.data.note || null,
         client_name: parsed.data.client_name || null,
         client_phone: parsed.data.client_phone || null,
+        reliquat_action: parsed.data.reliquat_action || "unallocated",
       },
     });
     revalidatePath("/transfers");

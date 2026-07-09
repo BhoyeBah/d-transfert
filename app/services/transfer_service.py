@@ -8,12 +8,14 @@ from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedEr
 from app.models.collaboration import Collaboration, CollaborationStatus
 from app.models.entry_allocation import EntryAllocation, EntryAllocationTargetType
 from app.models.notification import NotificationType
+from app.models.proof import ProofStatus
 from app.models.transfer import Transfer, TransferStatus, TransferStatusHistory
 from app.repositories import (
     collaboration_repository,
     collaborator_balance_repository,
     entry_repository,
     private_rate_repository,
+    proof_repository,
     transfer_repository,
 )
 from app.schemas.transfer import TransferCreateRequest
@@ -94,8 +96,12 @@ async def create_transfer(
     )
 
     private_rate_row = await private_rate_repository.get_active_by_scope(
-        session, company_id, collaboration.id, None, payload.currency
+        session, company_id, collaboration.id, None, payload.currency, payload.send_mode
     )
+    if private_rate_row is None:
+        private_rate_row = await private_rate_repository.get_active_by_scope(
+            session, company_id, collaboration.id, None, payload.currency
+        )
     if private_rate_row is None:
         private_rate_row = await private_rate_repository.get_active_by_scope(
             session, company_id, None, None, payload.currency
@@ -107,6 +113,7 @@ async def create_transfer(
     allocations: list = []
     allocation_amount = _quantize(payload.amount)
     client_debt_amount = Decimal("0.00")
+    reliquat_amount = Decimal("0.00")
     if payload.entry_id is not None:
         entry, lines, allocations = await entry_service.get_entry(session, company_id, payload.entry_id)
         if entry.merged_into_id is not None:
@@ -131,6 +138,18 @@ async def create_transfer(
                     f"({available_for_currency} {payload.currency} disponible) : un client "
                     "(nom et téléphone) est requis pour enregistrer la dette du manquant."
                 )
+        elif payload.amount < available_for_currency and payload.reliquat_action != "unallocated":
+            # Reliquat : le montant déclaré est inférieur au disponible. Selon le choix de
+            # l'utilisateur, ce reliquat est soit conservé comme frais (l'entrée est totalement
+            # consommée, sans autre effet), soit crédité au solde du client.
+            reliquat_amount = _quantize(available_for_currency - payload.amount)
+            allocation_amount = _quantize(available_for_currency)
+            if payload.reliquat_action == "client_credit" and not (
+                payload.client_name and payload.client_phone
+            ) and not (entry.client_name and entry.client_phone):
+                raise ConflictError(
+                    "Le crédit du reliquat au client nécessite un client (nom et téléphone)."
+                )
     elif payload.client_name and payload.client_phone:
         # Envoi direct (solde direct) : aucun montant n'a été reçu via une entrée, donc si un
         # client est renseigné, la totalité du montant est une dette du client envers l'entreprise.
@@ -141,7 +160,7 @@ async def create_transfer(
     )
 
     client = None
-    if client_debt_amount > 0:
+    if client_debt_amount > 0 or (reliquat_amount > 0 and payload.reliquat_action == "client_credit"):
         client_name = payload.client_name or (entry.client_name if entry is not None else None)
         client_phone = payload.client_phone or (entry.client_phone if entry is not None else None)
         client = await client_service.get_or_create_client(session, company_id, client_name, client_phone)
@@ -181,7 +200,7 @@ async def create_transfer(
         await session.flush()
         entry.status = entry_service.recompute_status(lines, [*allocations, allocation])
 
-    if client is not None:
+    if client is not None and client_debt_amount > 0:
         await client_service.apply_balance_delta(
             session,
             client,
@@ -192,10 +211,31 @@ async def create_transfer(
             note=f"Manquant sur l'envoi {reference}",
         )
 
+    if client is not None and reliquat_amount > 0 and payload.reliquat_action == "client_credit":
+        await client_service.apply_balance_delta(
+            session,
+            client,
+            -reliquat_amount,
+            source_type="transfer",
+            source_id=transfer.id,
+            created_by_id=created_by_id,
+            note=f"Reliquat crédité au client sur l'envoi {reference}",
+        )
+
+    if reliquat_amount > 0:
+        await audit_service.log_action(
+            session, company_id, created_by_id, "transfer.reliquat", "transfer", transfer.id,
+            note=f"action={payload.reliquat_action} amount={reliquat_amount} {payload.currency}",
+        )
+
     history = TransferStatusHistory(
         transfer_id=transfer.id, old_status=None, new_status=TransferStatus.PENDING, company_id=company_id
     )
     session.add(history)
+
+    await audit_service.log_action(
+        session, company_id, created_by_id, "transfer.create", "transfer", transfer.id
+    )
 
     await notification_service.notify(
         session,
@@ -243,6 +283,8 @@ async def approve_transfer(
     transfer.status = TransferStatus.APPROVED
     transfer.approved_at = datetime.now(timezone.utc)
 
+    await proof_repository.set_status_for_transfer(session, transfer.id, ProofStatus.VALIDATED)
+
     history = TransferStatusHistory(
         transfer_id=transfer.id,
         old_status=old_status,
@@ -286,6 +328,14 @@ async def reject_transfer(
         )
         entry.status = entry_service.recompute_status(lines, allocations)
 
+    if transfer.client_id is not None:
+        await client_service.reverse_movements_for_source(
+            session, transfer.company_id, transfer.client_id, "transfer", transfer.id,
+            acted_by_user_id, note=f"Annulation de la dette suite au rejet de l'envoi {transfer.reference}",
+        )
+
+    await proof_repository.set_status_for_transfer(session, transfer.id, ProofStatus.REJECTED)
+
     history = TransferStatusHistory(
         transfer_id=transfer.id,
         old_status=old_status,
@@ -312,7 +362,7 @@ async def reject_transfer(
 async def cancel_transfer(
     session: AsyncSession, company_id: uuid.UUID, acted_by_user_id: uuid.UUID, transfer_id: uuid.UUID
 ) -> Transfer:
-    transfer, _collaboration = await _get_transfer_for_party(session, company_id, transfer_id, for_update=True)
+    transfer, collaboration = await _get_transfer_for_party(session, company_id, transfer_id, for_update=True)
 
     if transfer.company_id != company_id:
         raise PermissionDeniedError("Seule l'entreprise à l'origine de l'envoi peut l'annuler.")
@@ -332,6 +382,14 @@ async def cancel_transfer(
         entry, lines, allocations = await entry_service.get_entry(session, transfer.company_id, transfer.entry_id)
         entry.status = entry_service.recompute_status(lines, allocations)
 
+    if transfer.client_id is not None:
+        await client_service.reverse_movements_for_source(
+            session, transfer.company_id, transfer.client_id, "transfer", transfer.id,
+            acted_by_user_id, note=f"Annulation de la dette suite à l'annulation de l'envoi {transfer.reference}",
+        )
+
+    await proof_repository.set_status_for_transfer(session, transfer.id, ProofStatus.REJECTED)
+
     history = TransferStatusHistory(
         transfer_id=transfer.id,
         old_status=old_status,
@@ -341,6 +399,14 @@ async def cancel_transfer(
     session.add(history)
     await audit_service.log_action(
         session, company_id, acted_by_user_id, "transfer.cancel", "transfer", transfer.id
+    )
+    await notification_service.notify(
+        session,
+        _other_party(collaboration, company_id),
+        NotificationType.TRANSFER_CANCELLED,
+        f"L'envoi {transfer.reference} a été annulé par son initiateur.",
+        link_type="transfer",
+        link_id=transfer.id,
     )
     await session.commit()
     return transfer

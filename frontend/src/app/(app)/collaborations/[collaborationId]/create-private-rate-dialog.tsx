@@ -7,6 +7,14 @@ import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SEND_MODES, sendModeLabels } from "@/lib/validation/transfers";
 
 export function CreatePrivateRateDialog({
   collaborationId,
@@ -16,6 +24,7 @@ export function CreatePrivateRateDialog({
   defaultCurrency: string;
 }) {
   const [currency, setCurrency] = useState(defaultCurrency);
+  const [operationType, setOperationType] = useState<string>("");
 
   return (
     <CreateEntityDialog
@@ -41,9 +50,27 @@ export function CreatePrivateRateDialog({
               )}
             </div>
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="country">Pays (optionnel)</Label>
-            <Input id="country" name="country" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="country">Pays (optionnel)</Label>
+              <Input id="country" name="country" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="operation_type">Type d&apos;opération (optionnel)</Label>
+              <Select value={operationType} onValueChange={setOperationType}>
+                <SelectTrigger id="operation_type" className="w-full">
+                  <SelectValue placeholder="Tous" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEND_MODES.map((mode) => (
+                    <SelectItem key={mode} value={mode}>
+                      {sendModeLabels[mode]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="operation_type" value={operationType} />
+            </div>
           </div>
         </>
       )}

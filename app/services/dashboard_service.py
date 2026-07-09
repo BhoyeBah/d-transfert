@@ -25,7 +25,15 @@ from app.repositories import (
     transfer_repository,
     wallet_repository,
 )
-from app.schemas.dashboard import CollaboratorBalanceSummary, DailyReportResponse, DashboardResponse
+from app.schemas.dashboard import (
+    CollaboratorBalanceSummary,
+    DailyReportResponse,
+    DashboardAlert,
+    DashboardResponse,
+    EmployeeDashboardResponse,
+)
+
+PENDING_ALERT_THRESHOLD_HOURS = 72
 
 
 def _other_party(collaboration: Collaboration, company_id: uuid.UUID) -> uuid.UUID:
@@ -42,12 +50,25 @@ def _is_on_date(created_at: datetime, target_date) -> bool:
     return created_at.astimezone(timezone.utc).date() == target_date
 
 
+def _hours_since(created_at: datetime) -> float:
+    return (datetime.now(timezone.utc) - created_at.astimezone(timezone.utc)).total_seconds() / 3600
+
+
 async def build_dashboard(session: AsyncSession, company_id: uuid.UUID) -> DashboardResponse:
+    alerts: list[DashboardAlert] = []
+
     wallets = await wallet_repository.list_by_company(session, company_id)
     wallets_balance_by_currency: dict[str, Decimal] = defaultdict(Decimal)
     for wallet in wallets:
         if wallet.status == WalletStatus.ACTIVE:
             wallets_balance_by_currency[wallet.currency] += wallet.balance
+            if wallet.balance < 0:
+                alerts.append(
+                    DashboardAlert(
+                        severity="critical",
+                        message=f"Le wallet {wallet.name} est en solde négatif : {wallet.balance} {wallet.currency}.",
+                    )
+                )
 
     collaborations = await collaboration_repository.list_for_company(session, company_id)
     collaborator_balances = []
@@ -88,11 +109,35 @@ async def build_dashboard(session: AsyncSession, company_id: uuid.UUID) -> Dashb
     transfers_rejected_count = sum(
         1 for transfer in transfers if transfer.status == TransferStatus.REJECTED
     )
+    for transfer in transfers:
+        if (
+            transfer.status == TransferStatus.PENDING
+            and _hours_since(transfer.created_at) >= PENDING_ALERT_THRESHOLD_HOURS
+        ):
+            alerts.append(
+                DashboardAlert(
+                    severity="warning",
+                    message=f"L'envoi {transfer.reference} est en attente depuis plus de "
+                    f"{PENDING_ALERT_THRESHOLD_HOURS // 24} jours.",
+                )
+            )
 
     payments = await payment_repository.list_for_company(session, company_id)
     payments_today_count = sum(1 for payment in payments if _is_today(payment.created_at))
     payments_pending_count = sum(1 for payment in payments if payment.status == PaymentStatus.PENDING)
     payments_rejected_count = sum(1 for payment in payments if payment.status == PaymentStatus.REJECTED)
+    for payment in payments:
+        if (
+            payment.status == PaymentStatus.PENDING
+            and _hours_since(payment.created_at) >= PENDING_ALERT_THRESHOLD_HOURS
+        ):
+            alerts.append(
+                DashboardAlert(
+                    severity="warning",
+                    message=f"Le paiement {payment.reference} est en attente depuis plus de "
+                    f"{PENDING_ALERT_THRESHOLD_HOURS // 24} jours.",
+                )
+            )
 
     clients = await client_repository.list_by_company(session, company_id)
     clients_total_balance = sum((c.balance for c in clients), Decimal("0.00"))
@@ -118,6 +163,48 @@ async def build_dashboard(session: AsyncSession, company_id: uuid.UUID) -> Dashb
         clients_total_balance=clients_total_balance,
         suppliers_total_balance=suppliers_total_balance,
         unread_notifications_count=unread_notifications_count,
+        alerts=alerts,
+    )
+
+
+async def build_employee_dashboard(
+    session: AsyncSession, company_id: uuid.UUID, user_id: uuid.UUID, include_wallets: bool
+) -> EmployeeDashboardResponse:
+    entries = await entry_repository.list_by_company(session, company_id)
+    own_entries_today = sum(
+        1 for entry in entries if entry.created_by_id == user_id and _is_today(entry.created_at)
+    )
+
+    transfers = await transfer_repository.list_for_company(session, company_id)
+    own_transfers_today = sum(
+        1 for transfer in transfers if transfer.created_by_id == user_id and _is_today(transfer.created_at)
+    )
+    own_pending_transfers = sum(
+        1
+        for transfer in transfers
+        if transfer.created_by_id == user_id and transfer.status == TransferStatus.PENDING
+    )
+
+    payments = await payment_repository.list_for_company(session, company_id)
+    own_payments_today = sum(
+        1 for payment in payments if payment.created_by_id == user_id and _is_today(payment.created_at)
+    )
+    own_pending_payments = sum(
+        1 for payment in payments if payment.created_by_id == user_id and payment.status == PaymentStatus.PENDING
+    )
+
+    wallets_count = 0
+    if include_wallets:
+        wallets = await wallet_repository.list_by_company(session, company_id)
+        wallets_count = len(wallets)
+
+    return EmployeeDashboardResponse(
+        entries_created_today_count=own_entries_today,
+        transfers_initiated_today_count=own_transfers_today,
+        payments_initiated_today_count=own_payments_today,
+        own_pending_transfers_count=own_pending_transfers,
+        own_pending_payments_count=own_pending_payments,
+        wallets_count=wallets_count,
     )
 
 

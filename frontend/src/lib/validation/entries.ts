@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const entryLineSchema = z.object({
   wallet_id: z.string().min(1, "Wallet requis."),
-  amount: z.number().gt(0, "Montant requis."),
-  currency: z.string().min(3).max(8),
+  amount: z.number("Montant invalide.").gt(0, "Montant requis."),
+  currency: z.string("Devise requise.").min(3, "Devise invalide.").max(8, "Devise invalide."),
   note: z.string().max(255).optional(),
 });
 

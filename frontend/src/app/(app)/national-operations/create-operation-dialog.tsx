@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -44,6 +44,8 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<NationalOperationFormValues>({
     resolver: zodResolver(createNationalOperationSchema),
@@ -55,6 +57,44 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
     },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
+
+  const firstLineAmount = watch("lines.0.amount");
+  const firstLineDirection = watch("lines.0.direction");
+  const firstLineWalletId = watch("lines.0.wallet_id");
+  const secondLineWalletId = watch("lines.1.wallet_id");
+  const allLines = watch("lines");
+  const exchangeRate = watch("exchange_rate");
+  const isSimplePair = fields.length === 2;
+
+  const firstLineCurrency = wallets.find((w) => w.id === firstLineWalletId)?.currency;
+  const secondLineCurrency = wallets.find((w) => w.id === secondLineWalletId)?.currency;
+  const isCrossCurrency =
+    isSimplePair && !!firstLineCurrency && !!secondLineCurrency && firstLineCurrency !== secondLineCurrency;
+
+  // Cas simple à 2 lignes même devise (dépôt/retrait/échange) : la ligne 2 suit
+  // automatiquement le montant et le sens inverse de la ligne 1, l'utilisateur n'a plus
+  // qu'à choisir le wallet de la ligne 2.
+  // Cas échange entre deux devises différentes : le montant de la ligne 2 est calculé
+  // à partir du taux de change saisi, appliqué au montant de la ligne 1.
+  useEffect(() => {
+    if (!isSimplePair) return;
+    setValue("lines.1.direction", firstLineDirection === "in" ? "out" : "in");
+    if (!isCrossCurrency) {
+      setValue("lines.1.amount", firstLineAmount);
+      return;
+    }
+    if (exchangeRate && exchangeRate > 0) {
+      const converted =
+        firstLineDirection === "out" ? firstLineAmount * exchangeRate : firstLineAmount / exchangeRate;
+      setValue("lines.1.amount", Math.round(converted * 100) / 100);
+    }
+  }, [isSimplePair, isCrossCurrency, firstLineAmount, firstLineDirection, exchangeRate, setValue]);
+
+  useEffect(() => {
+    if (!isCrossCurrency) {
+      setValue("exchange_rate", undefined);
+    }
+  }, [isCrossCurrency, setValue]);
 
   async function onSubmit(values: NationalOperationFormValues) {
     const result = await createNationalOperationAction(type, values);
@@ -113,7 +153,18 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
               </Button>
             </div>
             {errors.lines?.root && <p className="text-sm text-destructive">{errors.lines.root.message}</p>}
-            {fields.map((field, index) => (
+            {fields.map((field, index) => {
+              const isLockedSecondLine = isSimplePair && index === 1;
+              const walletUsedElsewhere = new Set(
+                allLines
+                  .filter((_, otherIndex) => otherIndex !== index)
+                  .map((line) => line.wallet_id)
+                  .filter(Boolean)
+              );
+              const availableWallets = wallets.filter(
+                (wallet) => wallet.id === allLines[index]?.wallet_id || !walletUsedElsewhere.has(wallet.id)
+              );
+              return (
               <div key={field.id} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border border-border p-3">
                 <div className="grid gap-1">
                   <Label className="text-xs">Wallet</Label>
@@ -132,7 +183,7 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
                     className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
                   >
                     <option value="">Choisir…</option>
-                    {wallets.map((wallet) => (
+                    {availableWallets.map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>
                         {wallet.name} ({wallet.currency})
                       </option>
@@ -141,16 +192,25 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
                 </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Sens</Label>
-                  <select
-                    {...register(`lines.${index}.direction`)}
-                    className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-                  >
-                    {Object.entries(DIRECTION_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                  {isLockedSecondLine ? (
+                    <>
+                      <div className="flex h-9 w-24 items-center rounded-md border border-input bg-muted px-2 text-sm text-muted-foreground">
+                        {DIRECTION_LABELS[firstLineDirection === "in" ? "out" : "in"]}
+                      </div>
+                      <input type="hidden" {...register(`lines.${index}.direction`)} />
+                    </>
+                  ) : (
+                    <select
+                      {...register(`lines.${index}.direction`)}
+                      className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                    >
+                      {Object.entries(DIRECTION_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Montant</Label>
@@ -158,9 +218,15 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
                     type="number"
                     min="0"
                     step="0.01"
-                    className="w-28"
+                    className={`w-28 ${isLockedSecondLine ? "bg-muted text-muted-foreground" : ""}`}
+                    readOnly={isLockedSecondLine}
                     {...register(`lines.${index}.amount`, { valueAsNumber: true })}
                   />
+                  {isLockedSecondLine && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {isCrossCurrency ? "Auto (taux)" : "Auto (ligne 1)"}
+                    </p>
+                  )}
                   <input type="hidden" {...register(`lines.${index}.currency`)} />
                 </div>
                 <Button
@@ -173,8 +239,27 @@ export function CreateOperationDialog({ wallets }: { wallets: Wallet[] }) {
                   <Trash2Icon className="text-destructive" />
                 </Button>
               </div>
-            ))}
+              );
+            })}
           </div>
+
+          {isCrossCurrency && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="exchange_rate">
+                Taux de change ({firstLineCurrency} → {secondLineCurrency})
+              </Label>
+              <Input
+                id="exchange_rate"
+                type="number"
+                min="0"
+                step="0.000001"
+                {...register("exchange_rate", { valueAsNumber: true })}
+              />
+              {errors.exchange_rate && (
+                <p className="text-sm text-destructive">{errors.exchange_rate.message}</p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">

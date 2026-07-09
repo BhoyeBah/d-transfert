@@ -18,17 +18,30 @@ export const nationalOperationTypeEndpoint: Record<(typeof NATIONAL_OPERATION_TY
 
 export const nationalOperationLineSchema = z.object({
   wallet_id: z.string().min(1, "Wallet requis."),
-  direction: z.enum(["in", "out"]),
-  amount: z.number().gt(0, "Montant requis."),
-  currency: z.string().min(3).max(8),
+  direction: z.enum(["in", "out"], { message: "Sens invalide." }),
+  amount: z.number("Montant invalide.").gt(0, "Montant requis."),
+  currency: z.string("Devise requise.").min(3, "Devise invalide.").max(8, "Devise invalide."),
   note: z.string().max(255).optional(),
 });
 
-export const createNationalOperationSchema = z.object({
-  client_name: z.string().max(255).optional(),
-  client_phone: z.string().max(32).optional(),
-  note: z.string().max(255).optional(),
-  lines: z.array(nationalOperationLineSchema).min(2, "Au moins 2 lignes sont requises."),
-});
+export const createNationalOperationSchema = z
+  .object({
+    client_name: z.string().max(255).optional(),
+    client_phone: z.string().max(32).optional(),
+    note: z.string().max(255).optional(),
+    exchange_rate: z.number("Taux invalide.").gt(0, "Le taux doit être positif.").optional(),
+    lines: z.array(nationalOperationLineSchema).min(2, "Au moins 2 lignes sont requises."),
+  })
+  .superRefine((data, ctx) => {
+    const walletIds = data.lines.map((line) => line.wallet_id).filter(Boolean);
+    if (new Set(walletIds).size !== walletIds.length) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lines"],
+        message:
+          "Chaque ligne doit concerner un wallet différent : il faut un wallet d'entrée et un wallet de sortie distincts.",
+      });
+    }
+  });
 
 export type NationalOperationFormValues = z.infer<typeof createNationalOperationSchema>;

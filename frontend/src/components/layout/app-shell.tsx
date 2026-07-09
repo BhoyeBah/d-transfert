@@ -1,5 +1,6 @@
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
+import { IdleLogout } from "@/components/idle-logout";
 import type { NavItem } from "@/lib/nav";
 
 export function AppShell({
@@ -21,6 +22,7 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-screen">
+      <IdleLogout />
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         <div className="flex h-14 items-center px-5 text-sm font-semibold tracking-tight">
           D-Transfert

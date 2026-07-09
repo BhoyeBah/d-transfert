@@ -163,6 +163,67 @@ async def test_payment_direct_wallet_outflow_deferred_to_approval(client):
     assert balance_b.json()["balance"] == "30000.00"
 
 
+async def test_payment_reliquat_fee_consumes_entry_fully(client):
+    collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
+    cash_id = await _create_wallet(client, token_a, "CASH")
+    entry = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "85000", "currency": "GNF"}]},
+        headers=_auth_headers(token_a),
+    )
+    entry_id = entry.json()["id"]
+
+    response = await client.post(
+        "/api/v1/payments",
+        json={
+            "collaboration_id": collaboration_id,
+            "entry_id": entry_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "reliquat_action": "fee",
+        },
+        headers=_auth_headers(token_a),
+    )
+    assert response.status_code == 201
+    assert response.json()["client_id"] is None
+
+    entry_after = await client.get(f"/api/v1/entries/{entry_id}", headers=_auth_headers(token_a))
+    assert entry_after.json()["status"] == "consumed"
+
+
+async def test_payment_reliquat_client_credit(client):
+    collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
+    cash_id = await _create_wallet(client, token_a, "CASH")
+    entry = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "85000", "currency": "GNF"}]},
+        headers=_auth_headers(token_a),
+    )
+    entry_id = entry.json()["id"]
+
+    response = await client.post(
+        "/api/v1/payments",
+        json={
+            "collaboration_id": collaboration_id,
+            "entry_id": entry_id,
+            "amount": "80000",
+            "currency": "GNF",
+            "reliquat_action": "client_credit",
+            "client_name": "Bhoye",
+            "client_phone": "+224600011155",
+        },
+        headers=_auth_headers(token_a),
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["client_id"] is not None
+
+    clients_response = await client.get("/api/v1/clients", headers=_auth_headers(token_a))
+    clients = clients_response.json()
+    assert len(clients) == 1
+    assert clients[0]["balance"] == "-5000.00"
+
+
 async def test_direct_payment_without_entry_with_client_creates_full_debt(client):
     collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
 
@@ -187,6 +248,60 @@ async def test_direct_payment_without_entry_with_client_creates_full_debt(client
     assert len(clients) == 1
     assert clients[0]["id"] == body["client_id"]
     assert clients[0]["balance"] == "30000.00"
+
+
+async def test_cancel_payment_reverses_client_debt(client):
+    collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
+
+    create_response = await client.post(
+        "/api/v1/payments",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "30000",
+            "currency": "GNF",
+            "client_name": "Bhoye",
+            "client_phone": "+224600011199",
+        },
+        headers=_auth_headers(token_a),
+    )
+    payment_id = create_response.json()["id"]
+    client_id = create_response.json()["client_id"]
+
+    cancel_response = await client.post(
+        f"/api/v1/payments/{payment_id}/cancel", headers=_auth_headers(token_a)
+    )
+    assert cancel_response.status_code == 200
+
+    client_after = await client.get(f"/api/v1/clients/{client_id}", headers=_auth_headers(token_a))
+    assert client_after.json()["balance"] == "0.00"
+
+
+async def test_reject_payment_reverses_client_debt(client):
+    collaboration_id, (_, token_a), (_, token_b) = await _setup_accepted_collaboration(client)
+
+    create_response = await client.post(
+        "/api/v1/payments",
+        json={
+            "collaboration_id": collaboration_id,
+            "amount": "30000",
+            "currency": "GNF",
+            "client_name": "Bhoye",
+            "client_phone": "+224600011200",
+        },
+        headers=_auth_headers(token_a),
+    )
+    payment_id = create_response.json()["id"]
+    client_id = create_response.json()["client_id"]
+
+    reject_response = await client.post(
+        f"/api/v1/payments/{payment_id}/reject",
+        json={"reason": "Montant incorrect"},
+        headers=_auth_headers(token_b),
+    )
+    assert reject_response.status_code == 200
+
+    client_after = await client.get(f"/api/v1/clients/{client_id}", headers=_auth_headers(token_a))
+    assert client_after.json()["balance"] == "0.00"
 
 
 async def test_direct_payment_without_entry_and_without_client_has_no_debt(client):

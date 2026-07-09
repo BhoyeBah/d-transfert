@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
+  Bell,
   Building2,
   FileClock,
   HandCoins,
@@ -32,6 +33,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   truck: Truck,
   "file-clock": FileClock,
   "shield-check": ShieldCheck,
+  bell: Bell,
 };
 
 export function SidebarNav({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {

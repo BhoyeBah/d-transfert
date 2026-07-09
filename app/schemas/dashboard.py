@@ -1,7 +1,13 @@
 import uuid
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
+
+
+class DashboardAlert(BaseModel):
+    severity: Literal["info", "warning", "critical"]
+    message: str
 
 
 class CollaboratorBalanceSummary(BaseModel):
@@ -28,6 +34,16 @@ class DashboardResponse(BaseModel):
     clients_total_balance: Decimal
     suppliers_total_balance: Decimal
     unread_notifications_count: int
+    alerts: list[DashboardAlert]
+
+
+class EmployeeDashboardResponse(BaseModel):
+    entries_created_today_count: int
+    transfers_initiated_today_count: int
+    payments_initiated_today_count: int
+    own_pending_transfers_count: int
+    own_pending_payments_count: int
+    wallets_count: int
 
 
 class DailyReportResponse(BaseModel):

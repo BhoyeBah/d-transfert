@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
@@ -8,13 +8,16 @@ import { toast } from "sonner";
 
 import { createTransferAction } from "@/actions/transfers";
 import {
+  RELIQUAT_ACTIONS,
   SEND_MODES,
   createTransferSchema,
+  reliquatActionLabels,
   sendModeLabels,
   type CreateTransferFormValues,
 } from "@/lib/validation/transfers";
 import type { Collaboration, Entry } from "@/types/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -36,11 +39,15 @@ import {
 export function CreateTransferDialog({
   collaborations,
   entries,
+  defaultEntryId,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
+  /** Pré-sélectionne et verrouille une entrée (bouton "Transformer en envoi" depuis une entrée). */
+  defaultEntryId?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [hasClientDebt, setHasClientDebt] = useState(false);
   const {
     register,
     handleSubmit,
@@ -50,7 +57,7 @@ export function CreateTransferDialog({
     formState: { errors, isSubmitting },
   } = useForm<CreateTransferFormValues>({
     resolver: zodResolver(createTransferSchema),
-    defaultValues: { send_mode: "cash" },
+    defaultValues: { send_mode: "cash", entry_id: defaultEntryId ?? "" },
   });
 
   const collaborationId = watch("collaboration_id");
@@ -58,8 +65,25 @@ export function CreateTransferDialog({
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
+  const lockedEntry = defaultEntryId ? entries.find((entry) => entry.id === defaultEntryId) : undefined;
+  const entryId = watch("entry_id");
+
+  // La devise proposée doit toujours refléter la collaboration choisie : sans ceci, un champ
+  // non contrôlé garde la devise vide (aucune collaboration au montage) ou celle de l'ancienne
+  // collaboration si l'utilisateur en choisit une autre après coup.
+  useEffect(() => {
+    if (selectedCollaboration) {
+      setValue("currency", selectedCollaboration.currency);
+    }
+  }, [selectedCollaboration, setValue]);
 
   async function onSubmit(values: CreateTransferFormValues) {
+    if (!hasClientDebt) {
+      values = { ...values, client_name: undefined, client_phone: undefined };
+    } else if (!values.client_name || !values.client_phone) {
+      toast.error("Nom et téléphone du client requis pour enregistrer la dette.");
+      return;
+    }
     const result = await createTransferAction(values);
     if (!result.ok) {
       toast.error(result.message);
@@ -68,19 +92,30 @@ export function CreateTransferDialog({
     toast.success(`Envoi ${result.data.reference} créé.`);
     setOpen(false);
     reset();
+    setHasClientDebt(false);
+  }
+
+  function onOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      reset();
+      setHasClientDebt(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={defaultEntryId ? "outline" : "default"} size={defaultEntryId ? "sm" : "default"}>
           <PlusIcon />
-          Nouvel envoi
+          {defaultEntryId ? "Transformer en envoi" : "Nouvel envoi"}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Créer un envoi international</DialogTitle>
+          <DialogTitle>
+            {defaultEntryId ? "Transformer l'entrée en envoi international" : "Créer un envoi international"}
+          </DialogTitle>
           <DialogDescription>
             Le taux collaboratif en vigueur sera figé sur cet envoi au moment de la création.
           </DialogDescription>
@@ -96,6 +131,8 @@ export function CreateTransferDialog({
               <option value="">Choisir…</option>
               {collaborations.map((collaboration) => (
                 <option key={collaboration.id} value={collaboration.id}>
+                  {collaboration.counterparty_company_name} ({collaboration.counterparty_company_matricule})
+                  {" · "}
                   {collaboration.currency} · taux {collaboration.current_rate}
                 </option>
               ))}
@@ -107,22 +144,53 @@ export function CreateTransferDialog({
 
           <div className="grid gap-1.5">
             <Label htmlFor="entry_id">Entrée à transformer (optionnel)</Label>
-            <select
-              id="entry_id"
-              {...register("entry_id")}
-              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-            >
-              <option value="">Aucune — solde direct</option>
-              {eligibleEntries.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.reference} —{" "}
-                  {Object.entries(entry.available_by_currency)
-                    .map(([currency, amount]) => `${amount} ${currency}`)
-                    .join(", ")}
-                </option>
-              ))}
-            </select>
+            {defaultEntryId ? (
+              <>
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted px-2 text-sm text-muted-foreground">
+                  {lockedEntry?.reference ?? defaultEntryId} —{" "}
+                  {lockedEntry
+                    ? Object.entries(lockedEntry.available_by_currency)
+                        .map(([currency, amount]) => `${amount} ${currency}`)
+                        .join(", ")
+                    : ""}
+                </div>
+                <input type="hidden" {...register("entry_id")} />
+              </>
+            ) : (
+              <select
+                id="entry_id"
+                {...register("entry_id")}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                <option value="">Aucune — solde direct</option>
+                {eligibleEntries.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.reference} —{" "}
+                    {Object.entries(entry.available_by_currency)
+                      .map(([currency, amount]) => `${amount} ${currency}`)
+                      .join(", ")}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
+
+          {entryId && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="reliquat_action">Si le montant est inférieur au disponible de l&apos;entrée</Label>
+              <select
+                id="reliquat_action"
+                {...register("reliquat_action")}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                {RELIQUAT_ACTIONS.map((action) => (
+                  <option key={action} value={action}>
+                    {reliquatActionLabels[action]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
@@ -134,7 +202,6 @@ export function CreateTransferDialog({
               <Label htmlFor="currency">Devise</Label>
               <Input
                 id="currency"
-                defaultValue={selectedCollaboration?.currency}
                 {...register("currency")}
                 onChange={(e) => setValue("currency", e.target.value.toUpperCase())}
               />
@@ -172,20 +239,35 @@ export function CreateTransferDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="client_name">Client (si le client vous doit ce montant)</Label>
-              <Input id="client_name" {...register("client_name")} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="client_phone">Téléphone client</Label>
-              <Input id="client_phone" {...register("client_phone")} />
-            </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="has_client_debt"
+              checked={hasClientDebt}
+              onCheckedChange={(checked) => setHasClientDebt(checked === true)}
+            />
+            <Label htmlFor="has_client_debt" className="font-normal">
+              Un client doit ce montant (dette client)
+            </Label>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Sans entrée sélectionnée, renseigner un client enregistre une dette client pour la
-            totalité du montant. Avec une entrée, seul le manquant devient une dette client.
-          </p>
+
+          {hasClientDebt && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="client_name">Nom du client</Label>
+                  <Input id="client_name" {...register("client_name")} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="client_phone">Téléphone client</Label>
+                  <Input id="client_phone" {...register("client_phone")} />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sans entrée sélectionnée, la totalité du montant devient une dette client. Avec une
+                entrée, seul le manquant (montant déclaré &gt; disponible) devient une dette client.
+              </p>
+            </>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="note">Note (optionnel)</Label>
             <Input id="note" {...register("note")} />

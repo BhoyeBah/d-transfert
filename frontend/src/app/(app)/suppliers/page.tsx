@@ -51,7 +51,11 @@ export default async function SuppliersPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{supplier.code}</TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">
+                  <TableCell
+                    className={`text-right font-medium tabular-nums ${
+                      Number(supplier.balance) < 0 ? "text-destructive" : ""
+                    }`}
+                  >
                     {formatMoney(supplier.balance, supplier.currency)}
                   </TableCell>
                 </TableRow>

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
+import { listCollaborations } from "@/lib/data/collaborations";
 import { getEntry } from "@/lib/data/entries";
+import { listWallets } from "@/lib/data/wallets";
 import { formatDate, formatMoney } from "@/lib/format";
 import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
@@ -16,15 +18,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CreatePaymentDialog } from "@/app/(app)/payments/create-payment-dialog";
+import { CreateTransferDialog } from "@/app/(app)/transfers/create-transfer-dialog";
 import { CancelEntryButton } from "./cancel-entry-button";
 
 export const metadata: Metadata = { title: "Détail entrée — D-Transfert" };
 
 const CANCELLABLE_STATUSES = new Set(["unallocated"]);
+const TRANSFORMABLE_STATUSES = new Set(["unallocated", "partially_allocated"]);
 
 export default async function EntryDetailPage({ params }: { params: Promise<{ entryId: string }> }) {
   const { entryId } = await params;
-  const entry = await getEntry(entryId);
+  const [entry, collaborations, wallets] = await Promise.all([
+    getEntry(entryId),
+    listCollaborations(),
+    listWallets(),
+  ]);
+  const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
+  const isTransformable =
+    TRANSFORMABLE_STATUSES.has(entry.status) &&
+    !entry.merged_into_id &&
+    Object.keys(entry.available_by_currency).length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,8 +57,23 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
               {entry.client_name ?? "Client non renseigné"} · {formatDate(entry.created_at)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <StatusBadge status={entry.status} />
+            {isTransformable && (
+              <>
+                <CreateTransferDialog
+                  collaborations={acceptedCollaborations}
+                  entries={[entry]}
+                  defaultEntryId={entry.id}
+                />
+                <CreatePaymentDialog
+                  collaborations={acceptedCollaborations}
+                  entries={[entry]}
+                  wallets={wallets}
+                  defaultEntryId={entry.id}
+                />
+              </>
+            )}
             {CANCELLABLE_STATUSES.has(entry.status) && !entry.merged_into_id && (
               <CancelEntryButton entryId={entry.id} />
             )}
