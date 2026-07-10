@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftRight, Clock, HandCoins, Wallet } from "lucide-react";
 
-import { listCollaborations } from "@/lib/data/collaborations";
+import { listCollaborations, listPrivateRates } from "@/lib/data/collaborations";
 import { listEntries } from "@/lib/data/entries";
 import { listTransfers, listTransfersPage } from "@/lib/data/transfers";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
@@ -36,11 +36,12 @@ export default async function TransfersPage({
 }) {
   const rawParams = await searchParams;
   const { page, search, sortBy, sortDir } = parseDataTableParams(rawParams);
-  const [transfersPage, allTransfers, collaborations, entries] = await Promise.all([
+  const [transfersPage, allTransfers, collaborations, entries, privateRates] = await Promise.all([
     listTransfersPage({ page, search, sortBy, sortDir }),
     listTransfers(),
     listCollaborations(),
     listEntries(),
+    listPrivateRates(),
   ]);
   const transfers = transfersPage.items;
   const entryReferenceById = new Map(entries.map((entry) => [entry.id, entry.reference]));
@@ -60,6 +61,7 @@ export default async function TransfersPage({
           <CreateTransferDialog
             collaborations={acceptedCollaborations}
             entries={entries}
+            privateRates={privateRates}
             initialEntryId={initialEntryId}
             initialOpen={Boolean(initialEntryId)}
           />
