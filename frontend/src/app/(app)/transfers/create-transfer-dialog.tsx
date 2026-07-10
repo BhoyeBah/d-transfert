@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
@@ -13,8 +13,10 @@ import {
   sendModeLabels,
   type CreateTransferFormValues,
 } from "@/lib/validation/transfers";
-import type { Collaboration, Entry } from "@/types/api";
+import { formatMoney } from "@/lib/format";
+import type { Collaboration, Entry, PrivateRate } from "@/types/api";
 import { Button } from "@/components/ui/button";
+import { CurrencySelect } from "@/components/currency-select";
 import {
   Dialog,
   DialogContent,
@@ -33,14 +35,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function findMatchingPrivateRate(
+  rates: PrivateRate[],
+  collaborationId: string,
+  currency: string,
+  sendMode: string
+): PrivateRate | undefined {
+  const active = rates.filter((rate) => rate.is_active && rate.currency === currency);
+  return (
+    active.find((rate) => rate.collaboration_id === collaborationId && rate.operation_type === sendMode) ??
+    active.find((rate) => rate.collaboration_id === collaborationId && rate.operation_type === null) ??
+    active.find((rate) => rate.collaboration_id === null && rate.operation_type === null)
+  );
+}
+
 export function CreateTransferDialog({
   collaborations,
   entries,
+  privateRates,
   initialEntryId,
   initialOpen = false,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
+  privateRates: PrivateRate[];
   initialEntryId?: string | null;
   initialOpen?: boolean;
 }) {
@@ -54,10 +72,13 @@ export function CreateTransferDialog({
     formState: { errors, isSubmitting },
   } = useForm<CreateTransferFormValues>({
     resolver: zodResolver(createTransferSchema),
-    defaultValues: { send_mode: "cash" },
+    defaultValues: { send_mode: "cash", currency: "" },
   });
 
   const collaborationId = useWatch({ control, name: "collaboration_id" });
+  const currency = useWatch({ control, name: "currency" });
+  const amount = useWatch({ control, name: "amount" });
+  const sendMode = useWatch({ control, name: "send_mode" }) ?? "cash";
   const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
@@ -74,6 +95,32 @@ export function CreateTransferDialog({
       setValue("client_phone", initialEntry.client_phone);
     }
   }, [initialEntry, initialEntryId, setValue]);
+
+  useEffect(() => {
+    if (selectedCollaboration) {
+      setValue("currency", selectedCollaboration.currency);
+    }
+  }, [selectedCollaboration, setValue]);
+
+  const matchedRate = useMemo(() => {
+    if (!collaborationId || !currency) return undefined;
+    return findMatchingPrivateRate(privateRates, collaborationId, currency, sendMode);
+  }, [privateRates, collaborationId, currency, sendMode]);
+
+  const conversionPreview = useMemo(() => {
+    if (!selectedCollaboration || !currency || !amount || Number.isNaN(amount) || amount <= 0) {
+      return null;
+    }
+    if (currency === selectedCollaboration.currency) {
+      return { amount, currency: selectedCollaboration.currency, rate: null as string | null };
+    }
+    if (!matchedRate) return "missing_rate" as const;
+    return {
+      amount: amount * Number(matchedRate.rate),
+      currency: selectedCollaboration.currency,
+      rate: matchedRate.rate,
+    };
+  }, [amount, currency, selectedCollaboration, matchedRate]);
 
   async function onSubmit(values: CreateTransferFormValues) {
     const result = await createTransferAction(values);
@@ -149,15 +196,42 @@ export function CreateTransferDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise</Label>
-              <Input
+              <CurrencySelect
                 id="currency"
-                defaultValue={selectedCollaboration?.currency}
-                {...register("currency")}
-                onChange={(e) => setValue("currency", e.target.value.toUpperCase())}
+                name="currency"
+                value={currency ?? ""}
+                onValueChange={(value) => setValue("currency", value)}
               />
               {errors.currency && <p className="text-sm text-destructive">{errors.currency.message}</p>}
             </div>
           </div>
+
+          {conversionPreview && (
+            <div
+              className={`rounded-md border px-3 py-2 text-sm ${
+                conversionPreview === "missing_rate"
+                  ? "border-destructive/40 text-destructive"
+                  : "border-dashed border-input text-muted-foreground"
+              }`}
+            >
+              {conversionPreview === "missing_rate" ? (
+                <p>
+                  Aucun taux d&apos;envoi privé configuré pour {currency}. Configurez-le depuis la page de
+                  la collaboration avant de créer cet envoi.
+                </p>
+              ) : (
+                <p>
+                  Le collaborateur devra payer environ{" "}
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {formatMoney(conversionPreview.amount, conversionPreview.currency)}
+                  </span>
+                  {conversionPreview.rate && (
+                    <span> (taux d&apos;envoi {conversionPreview.rate})</span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
