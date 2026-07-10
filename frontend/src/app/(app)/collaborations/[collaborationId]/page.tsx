@@ -115,15 +115,29 @@ export default async function CollaborationDetailPage({
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Solde collaborateur
               </span>
-              {balance && (
-                <p
-                  className={`text-2xl font-semibold tabular-nums ${
-                    Number(balance.balance) < 0 ? "text-destructive" : "text-success"
-                  }`}
-                >
-                  {formatMoney(balance.balance, balance.currency)}
-                </p>
-              )}
+              {balance && (() => {
+                const amount = Number(balance.balance);
+                const isDebt = amount < 0;
+                const isZero = amount === 0;
+                return (
+                  <>
+                    <p
+                      className={`text-2xl font-semibold tabular-nums ${
+                        isDebt ? "text-destructive" : isZero ? "" : "text-success"
+                      }`}
+                    >
+                      {formatMoney(Math.abs(amount), balance.currency)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {isZero
+                        ? "Aucun solde en cours."
+                        : isDebt
+                          ? `Vous devez ${collaboration.counterparty_company_name}.`
+                          : `${collaboration.counterparty_company_name} vous doit.`}
+                    </p>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
           <Card className="py-4">

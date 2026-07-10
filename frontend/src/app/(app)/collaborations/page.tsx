@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { Clock, Link2, Users } from "lucide-react";
 
 import { getCompanyMe } from "@/lib/data/company";
-import { listCollaborations, listCollaborationsPage } from "@/lib/data/collaborations";
+import { getCollaboratorBalance, listCollaborations, listCollaborationsPage } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -44,6 +44,13 @@ export default async function CollaborationsPage({
   const acceptedCount = allCollaborations.filter((collaboration) => collaboration.status === "accepted").length;
   const pendingCount = allCollaborations.filter((collaboration) => collaboration.status === "pending").length;
   const withRateCount = allCollaborations.filter((collaboration) => collaboration.current_rate !== null).length;
+
+  const balances = await Promise.all(
+    collaborations
+      .filter((collaboration) => collaboration.status === "accepted")
+      .map((collaboration) => getCollaboratorBalance(collaboration.id))
+  );
+  const balanceByCollaborationId = new Map(balances.map((balance) => [balance.collaboration_id, balance]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -104,6 +111,7 @@ export default async function CollaborationsPage({
                       search={search}
                     />
                     <TableHead className="text-right">Taux actuel</TableHead>
+                    <TableHead className="text-right">Solde</TableHead>
                     <SortableHeader
                       column="created_at"
                       label="Date"
@@ -136,6 +144,25 @@ export default async function CollaborationsPage({
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {collaboration.current_rate ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {(() => {
+                          const balance = balanceByCollaborationId.get(collaboration.id);
+                          if (!balance) return "—";
+                          const amount = Number(balance.balance);
+                          const isDebt = amount < 0;
+                          const isZero = amount === 0;
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className={isDebt ? "text-destructive" : isZero ? "" : "text-success"}>
+                                {formatMoney(Math.abs(amount), balance.currency)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {isZero ? "équilibré" : isDebt ? "vous devez" : "on vous doit"}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDate(collaboration.created_at)}

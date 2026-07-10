@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   ArrowLeftRight,
   Building2,
@@ -149,21 +150,41 @@ export default async function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboard.collaborator_balances.map((balance) => (
-                    <TableRow key={balance.collaboration_id}>
-                      <TableCell className="font-mono text-xs">
-                        {balance.collaboration_id.slice(0, 8)}
-                      </TableCell>
-                      <TableCell>{balance.currency}</TableCell>
-                      <TableCell
-                        className={`text-right font-medium tabular-nums ${
-                          Number(balance.balance) < 0 ? "text-destructive" : "text-success"
-                        }`}
-                      >
-                        {formatMoney(balance.balance, balance.currency)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {dashboard.collaborator_balances.map((balance) => {
+                    const amount = Number(balance.balance);
+                    const isDebt = amount < 0;
+                    const isZero = amount === 0;
+                    return (
+                      <TableRow key={balance.collaboration_id}>
+                        <TableCell>
+                          <Link
+                            href={`/collaborations/${balance.collaboration_id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {balance.collaborator_company_name}
+                          </Link>
+                          <div className="text-xs text-muted-foreground">
+                            {balance.collaborator_company_matricule}
+                          </div>
+                        </TableCell>
+                        <TableCell>{balance.currency}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end">
+                            <span
+                              className={`font-medium tabular-nums ${
+                                isDebt ? "text-destructive" : isZero ? "" : "text-success"
+                              }`}
+                            >
+                              {formatMoney(Math.abs(amount), balance.currency)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {isZero ? "équilibré" : isDebt ? "vous devez" : "on vous doit"}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
