@@ -109,16 +109,16 @@ export default async function TransferDetailPage({
               <span className="text-muted-foreground">Montant converti</span>
               <AmountDisplay value={transfer.converted_amount} currency={collaboration.currency} size="md" />
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Taux collaboratif utilisé</span>
-              <span className="tabular-nums">{transfer.collaborative_rate_used}</span>
-            </div>
             {canSeePrivateRate && transfer.private_rate_used && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Taux privé utilisé</span>
+                <span className="text-muted-foreground">Taux d&apos;envoi utilisé (conversion)</span>
                 <span className="tabular-nums">{transfer.private_rate_used}</span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Taux collaboratif (référence)</span>
+              <span className="tabular-nums">{transfer.collaborative_rate_used}</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Mode d&apos;envoi</span>
               <span>{sendModeLabels[transfer.send_mode]}</span>
