@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -63,6 +64,7 @@ export function CreateTransferDialog({
   initialOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen || Boolean(initialEntryId));
+  const [manualClient, setManualClient] = useState(false);
   const {
     control,
     register,
@@ -79,11 +81,25 @@ export function CreateTransferDialog({
   const currency = useWatch({ control, name: "currency" });
   const amount = useWatch({ control, name: "amount" });
   const sendMode = useWatch({ control, name: "send_mode" }) ?? "cash";
+  const entryId = useWatch({ control, name: "entry_id" });
   const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
   const eligibleEntries = entries.filter(
-    (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
+    (entry) =>
+      !entry.merged_into_id &&
+      Object.values(entry.available_by_currency).some((value) => Number(value) > 0)
   );
   const initialEntry = initialEntryId ? entries.find((entry) => entry.id === initialEntryId) : undefined;
+  const selectedEntry = entryId ? eligibleEntries.find((entry) => entry.id === entryId) : undefined;
+  const availableForCurrency =
+    selectedEntry && currency ? Number(selectedEntry.available_by_currency[currency] ?? 0) : null;
+  const exceedsAvailable = Boolean(
+    selectedEntry &&
+      availableForCurrency !== null &&
+      amount > 0 &&
+      !Number.isNaN(amount) &&
+      amount > availableForCurrency
+  );
+  const showClientFields = exceedsAvailable || manualClient;
 
   useEffect(() => {
     if (!initialEntryId) return;
@@ -160,7 +176,7 @@ export function CreateTransferDialog({
               <option value="">Choisir…</option>
               {collaborations.map((collaboration) => (
                 <option key={collaboration.id} value={collaboration.id}>
-                  {collaboration.currency} · taux {collaboration.current_rate}
+                  {collaboration.counterparty_company_matricule}({collaboration.current_rate})
                 </option>
               ))}
             </select>
@@ -263,16 +279,36 @@ export function CreateTransferDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="client_name">Client (si le montant dépasse l&apos;entrée)</Label>
-              <Input id="client_name" {...register("client_name")} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="client_phone">Téléphone client</Label>
-              <Input id="client_phone" {...register("client_phone")} />
-            </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="register_client"
+              checked={showClientFields}
+              disabled={exceedsAvailable}
+              onCheckedChange={(checked) => setManualClient(Boolean(checked))}
+            />
+            <Label htmlFor="register_client" className="text-sm font-normal">
+              Enregistrer un client (montant à recouvrer)
+            </Label>
           </div>
+          {exceedsAvailable && (
+            <p className="text-xs text-warning">
+              Le montant dépasse le disponible de l&apos;entrée sélectionnée : un client est requis pour
+              enregistrer la dette.
+            </p>
+          )}
+
+          {showClientFields && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="client_name">Client</Label>
+                <Input id="client_name" {...register("client_name")} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="client_phone">Téléphone client</Label>
+                <Input id="client_phone" {...register("client_phone")} />
+              </div>
+            </div>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="note">Note (optionnel)</Label>
             <Input id="note" {...register("note")} />

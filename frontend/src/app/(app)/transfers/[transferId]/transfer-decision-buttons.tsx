@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { approveTransferAction, cancelTransferAction, rejectTransferAction } from "@/actions/transfers";
+import { formatMoney } from "@/lib/format";
+import type { Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -17,19 +20,28 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function TransferDecisionButtons({ transferId }: { transferId: string }) {
+export function TransferDecisionButtons({
+  transferId,
+  wallets,
+}: {
+  transferId: string;
+  wallets: Wallet[];
+}) {
   const [isPending, startTransition] = useTransition();
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
   const router = useRouter();
 
-  function approve() {
+  function approve(formData: FormData) {
+    const walletId = String(formData.get("wallet_id") ?? "");
     startTransition(async () => {
-      const result = await approveTransferAction(transferId);
+      const result = await approveTransferAction(transferId, walletId);
       if (!result.ok) {
         toast.error(result.message);
         return;
       }
       toast.success("Envoi approuvé.");
+      setApproveOpen(false);
       router.refresh();
     });
   }
@@ -50,9 +62,50 @@ export function TransferDecisionButtons({ transferId }: { transferId: string }) 
 
   return (
     <div className="flex gap-2">
-      <Button size="sm" disabled={isPending} onClick={approve}>
-        Approuver
-      </Button>
+      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" disabled={isPending}>
+            Approuver
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approuver l&apos;envoi</DialogTitle>
+            <DialogDescription>
+              Sélectionnez le wallet depuis lequel vous avez payé le bénéficiaire — son solde sera
+              débité du montant converti.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={approve} className="flex flex-col gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="wallet_id">Wallet utilisé</Label>
+              <select
+                id="wallet_id"
+                name="wallet_id"
+                required
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                <option value="">Choisir…</option>
+                {wallets.map((wallet) => (
+                  <option key={wallet.id} value={wallet.id}>
+                    {wallet.name} ({wallet.currency}) — {formatMoney(wallet.balance, wallet.currency)}
+                  </option>
+                ))}
+              </select>
+              {wallets.length === 0 && (
+                <p className="text-sm text-destructive">
+                  Aucun wallet actif dans la devise requise. Créez-en un avant d&apos;approuver.
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isPending || wallets.length === 0}>
+                Confirmer l&apos;approbation
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogTrigger asChild>
           <Button size="sm" variant="outline" disabled={isPending}>

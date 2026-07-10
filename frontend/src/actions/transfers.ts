@@ -43,15 +43,22 @@ export async function createTransferAction(
   }
 }
 
-export async function approveTransferAction(transferId: string): Promise<MutationResult> {
+export async function approveTransferAction(transferId: string, walletId: string): Promise<MutationResult> {
+  if (!walletId) {
+    return { ok: false, message: "Sélectionnez le wallet ayant servi à payer le bénéficiaire." };
+  }
   try {
-    await serverFetch(`/api/v1/transfers/${transferId}/approve`, { method: "POST", body: {} });
+    await serverFetch(`/api/v1/transfers/${transferId}/approve`, {
+      method: "POST",
+      body: { wallet_id: walletId },
+    });
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, message: error.message };
     return { ok: false, message: "Impossible de contacter le serveur." };
   }
   revalidatePath("/transfers");
   revalidatePath(`/transfers/${transferId}`);
+  revalidatePath("/wallets");
   return { ok: true, data: undefined };
 }
 

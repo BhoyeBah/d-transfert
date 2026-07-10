@@ -246,6 +246,7 @@ export type Transfer = {
   converted_amount: string;
   status: TransferStatus;
   proof_id: string | null;
+  wallet_id: string | null;
   created_by_id: string;
   approved_at: string | null;
   rejected_at: string | null;

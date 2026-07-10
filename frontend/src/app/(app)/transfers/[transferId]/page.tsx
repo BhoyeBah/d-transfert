@@ -6,6 +6,7 @@ import { uploadTransferProofAction } from "@/actions/transfers";
 import { getCollaboration } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { getTransfer, getTransferStatusHistory, listTransferProofs } from "@/lib/data/transfers";
+import { listWallets } from "@/lib/data/wallets";
 import { formatDate } from "@/lib/format";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { AmountDisplay } from "@/components/amount-display";
@@ -31,11 +32,12 @@ export default async function TransferDetailPage({
   params: Promise<{ transferId: string }>;
 }) {
   const { transferId } = await params;
-  const [transfer, history, proofs, me] = await Promise.all([
+  const [transfer, history, proofs, me, wallets] = await Promise.all([
     getTransfer(transferId),
     getTransferStatusHistory(transferId),
     listTransferProofs(transferId),
     getMe(),
+    listWallets(),
   ]);
   const collaboration = await getCollaboration(transfer.collaboration_id);
 
@@ -44,6 +46,10 @@ export default async function TransferDetailPage({
   const canDecide = isPending && isCounterparty;
   const awaitingOtherParty = isPending && !isCounterparty;
   const canSeePrivateRate = transfer.company_id === me.company_id;
+  const walletsForApproval = wallets.filter(
+    (wallet) => wallet.currency === collaboration.currency && wallet.status === "active"
+  );
+  const usedWallet = transfer.wallet_id ? wallets.find((wallet) => wallet.id === transfer.wallet_id) : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,7 +71,9 @@ export default async function TransferDetailPage({
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={transfer.status} />
-            {canDecide && <TransferDecisionButtons transferId={transfer.id} />}
+            {canDecide && (
+              <TransferDecisionButtons transferId={transfer.id} wallets={walletsForApproval} />
+            )}
             {awaitingOtherParty && (
               <>
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -127,6 +135,14 @@ export default async function TransferDetailPage({
               <span className="text-muted-foreground">Bénéficiaire</span>
               <span>{transfer.beneficiary_phone}</span>
             </div>
+            {usedWallet && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Wallet utilisé</span>
+                <Link href={`/wallets/${usedWallet.id}`} className="font-medium hover:underline">
+                  {usedWallet.name}
+                </Link>
+              </div>
+            )}
             {transfer.client_debt_amount && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dette client (manquant)</span>
