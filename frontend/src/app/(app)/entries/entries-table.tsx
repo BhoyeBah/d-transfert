@@ -3,14 +3,16 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeftRight, HandCoins, EyeIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { mergeEntriesAction } from "@/actions/entries";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { SortDir } from "@/lib/data-table";
-import type { Collaboration, Entry, Wallet } from "@/types/api";
+import type { Entry } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SortableHeader } from "@/components/data-table/sortable-header";
 import {
   Table,
   TableBody,
@@ -19,20 +21,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SortableHeader } from "@/components/data-table/sortable-header";
 import { StatusBadge } from "@/components/status-badge";
-import { CreatePaymentDialog } from "@/app/(app)/payments/create-payment-dialog";
-import { CreateTransferDialog } from "@/app/(app)/transfers/create-transfer-dialog";
 
 const MERGEABLE_STATUSES = new Set(["unallocated", "partially_allocated"]);
-const TRANSFORMABLE_STATUSES = new Set(["unallocated", "partially_allocated"]);
 
-function isTransformable(entry: Entry) {
-  return (
-    TRANSFORMABLE_STATUSES.has(entry.status) &&
-    !entry.merged_into_id &&
-    Object.keys(entry.available_by_currency).length > 0
-  );
+function entryClientKey(entry: Entry): string | null {
+  if (!entry.client_name || !entry.client_phone) return null;
+  return `${entry.client_name.trim().toLowerCase()}|${entry.client_phone.trim()}`;
 }
 
 function availableSummary(entry: Entry) {
@@ -42,26 +37,13 @@ function availableSummary(entry: Entry) {
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
-function grossSummary(entry: Entry) {
-  const totals = new Map<string, number>();
-  for (const line of entry.lines) {
-    totals.set(line.currency, (totals.get(line.currency) ?? 0) + Number(line.amount));
-  }
-  const parts = [...totals.entries()].map(([currency, amount]) => formatMoney(amount, currency));
-  return parts.length > 0 ? parts.join(" · ") : "—";
-}
-
 export function EntriesTable({
   entries,
-  collaborations,
-  wallets,
   sortBy,
   sortDir,
   search,
 }: {
   entries: Entry[];
-  collaborations: Collaboration[];
-  wallets: Wallet[];
   sortBy?: string;
   sortDir?: SortDir;
   search?: string;
@@ -69,6 +51,11 @@ export function EntriesTable({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const selectedEntries = entries.filter((entry) => selected.has(entry.id));
+  const selectedClientKeys = new Set(
+    selectedEntries.map(entryClientKey).filter((key): key is string => Boolean(key))
+  );
+  const sameClientSelection = selectedEntries.length >= 2 && selectedEntries.every((entry) => entryClientKey(entry) !== null) && selectedClientKeys.size === 1;
 
   function toggle(entryId: string) {
     setSelected((prev) => {
@@ -80,6 +67,10 @@ export function EntriesTable({
   }
 
   function merge() {
+    if (!sameClientSelection) {
+      toast.error("Sélectionne uniquement des entrées du même client pour fusionner.");
+      return;
+    }
     startTransition(async () => {
       const result = await mergeEntriesAction([...selected]);
       if (!result.ok) {
@@ -95,9 +86,16 @@ export function EntriesTable({
   return (
     <div className="flex flex-col gap-3">
       {selected.size >= 2 && (
-        <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
-          <span className="text-sm">{selected.size} entrées sélectionnées</span>
-          <Button size="sm" onClick={merge} disabled={isPending}>
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm">
+            <div>{selected.size} entrées sélectionnées</div>
+            {!sameClientSelection && (
+              <div className="text-xs text-warning">
+                La fusion est prévue pour des entrées du même client.
+              </div>
+            )}
+          </div>
+          <Button size="sm" onClick={merge} disabled={isPending || !sameClientSelection}>
             {isPending ? "Fusion..." : "Fusionner"}
           </Button>
         </div>
@@ -109,7 +107,6 @@ export function EntriesTable({
             <SortableHeader column="reference" label="Référence" currentSort={sortBy} currentDir={sortDir} search={search} />
             <TableHead>Statut</TableHead>
             <TableHead>Client</TableHead>
-            <TableHead className="text-right">Montant reçu</TableHead>
             <TableHead className="text-right">Disponible</TableHead>
             <SortableHeader column="created_at" label="Date" currentSort={sortBy} currentDir={sortDir} search={search} />
             <TableHead className="text-right">Actions</TableHead>
@@ -135,29 +132,37 @@ export function EntriesTable({
               <TableCell>
                 <StatusBadge status={entry.status} />
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{entry.client_name ?? "—"}</TableCell>
-              <TableCell className="text-right tabular-nums">{grossSummary(entry)}</TableCell>
-              <TableCell className="text-right font-medium tabular-nums">{availableSummary(entry)}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {entry.client_name ? (
+                  <div className="flex flex-col">
+                    <span className="font-medium text-foreground">{entry.client_name}</span>
+                    <span className="text-xs">{entry.client_phone ?? "—"}</span>
+                  </div>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{availableSummary(entry)}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  {isTransformable(entry) && (
-                    <>
-                      <CreateTransferDialog
-                        collaborations={collaborations}
-                        entries={[entry]}
-                        defaultEntryId={entry.id}
-                      />
-                      <CreatePaymentDialog
-                        collaborations={collaborations}
-                        entries={[entry]}
-                        wallets={wallets}
-                        defaultEntryId={entry.id}
-                      />
-                    </>
-                  )}
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/entries/${entry.id}`}>Voir</Link>
+              <TableCell>
+                <div className="flex justify-end gap-2">
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/entries/${entry.id}`}>
+                      <EyeIcon />
+                      Voir
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/transfers?entry=${entry.id}`}>
+                      <ArrowLeftRight />
+                      Envoi
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm" variant="secondary">
+                    <Link href={`/payments?entry=${entry.id}`}>
+                      <HandCoins />
+                      Paiement client
+                    </Link>
                   </Button>
                 </div>
               </TableCell>

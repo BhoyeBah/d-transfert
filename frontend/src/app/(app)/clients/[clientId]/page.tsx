@@ -6,6 +6,8 @@ import { getClient, listClientMovements } from "@/lib/data/clients";
 import { formatDate, formatMoney } from "@/lib/format";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { StatTile } from "@/components/stat-tile";
 import {
   Table,
   TableBody,
@@ -20,6 +22,8 @@ export const metadata: Metadata = { title: "Détail client — D-Transfert" };
 export default async function ClientDetailPage({ params }: { params: Promise<{ clientId: string }> }) {
   const { clientId } = await params;
   const [client, movements] = await Promise.all([getClient(clientId), listClientMovements(clientId)]);
+  const positiveMovements = movements.filter((movement) => Number(movement.delta) > 0).length;
+  const negativeMovements = movements.filter((movement) => Number(movement.delta) < 0).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,6 +55,17 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
         </div>
       </div>
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Solde"
+          value={formatMoney(client.balance)}
+          tone={Number(client.balance) > 0 ? "destructive" : "success"}
+        />
+        <StatTile label="Mouvements" value={movements.length} />
+        <StatTile label="Entrées" value={positiveMovements} tone="destructive" />
+        <StatTile label="Sorties" value={negativeMovements} tone="success" />
+      </section>
+
       <Card>
         <CardHeader>
           <CardTitle>Mouvements de solde</CardTitle>
@@ -71,7 +86,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
               <TableBody>
                 {movements.map((movement) => (
                   <TableRow key={movement.id}>
-                    <TableCell className="text-sm">{movement.source_type}</TableCell>
+                    <TableCell className="text-sm">
+                      <Badge variant="outline" className="w-fit">
+                        {movement.source_type.replaceAll("_", " ")}
+                      </Badge>
+                    </TableCell>
                     <TableCell
                       className={`text-right tabular-nums ${
                         Number(movement.delta) > 0 ? "text-destructive" : "text-success"

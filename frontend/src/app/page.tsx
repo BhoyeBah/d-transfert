@@ -1,224 +1,203 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
-  ArrowLeftRight,
   ArrowRight,
-  Building2,
-  FileClock,
-  HandCoins,
-  Landmark,
-  Layers,
-  Paperclip,
-  ScrollText,
+  BarChart3,
+  CheckCircle2,
+  Clock3,
   ShieldCheck,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 
-import { getSession } from "@/lib/session";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "D-Transfert — Gestion des transferts d'argent entre entreprises",
+  title: "D-Transfert",
   description:
-    "Wallets, opérations nationales, envois internationaux, paiements collaborateurs et preuves : centralisez vos transferts d'argent entre entreprises partenaires dans une seule plateforme claire et sécurisée.",
+    "Plateforme professionnelle de gestion multi-entreprises pour wallets, collaborations, opérations et rapports.",
 };
 
-const FEATURES = [
+const highlights = [
   {
+    title: "Soldes lisibles",
+    description: "Une vue claire des wallets, des dettes et des validations en cours.",
     icon: Wallet,
-    title: "Wallets",
-    description: "Cash, mobile money, banque : suivez le solde réel de chaque caisse en temps réel.",
   },
   {
-    icon: ScrollText,
-    title: "Entrées",
-    description: "Enregistrez l'argent reçu d'un client, puis transformez-le en envoi ou en paiement.",
-  },
-  {
-    icon: ArrowLeftRight,
-    title: "Envois internationaux",
-    description: "Envoyez vers un collaborateur avec taux privé et taux collaboratif clairement séparés.",
-  },
-  {
-    icon: HandCoins,
-    title: "Paiements collaborateurs",
-    description: "Réglez une dette entre partenaires et suivez l'impact sur le solde partagé.",
-  },
-  {
-    icon: Building2,
-    title: "Collaborations",
-    description: "Un solde partagé et transparent avec chaque entreprise partenaire, sans ambiguïté.",
-  },
-  {
-    icon: Paperclip,
-    title: "Preuves",
-    description: "Justifiez chaque opération avec une pièce jointe rattachée à l'envoi ou au paiement.",
-  },
-  {
-    icon: FileClock,
-    title: "Rapports & audit",
-    description: "Rapport journalier et journal d'audit pour ne jamais perdre la trace d'une action.",
-  },
-  {
+    title: "Collaborations cadrées",
+    description: "Taux, validations et historique dans un seul flux de travail.",
     icon: ShieldCheck,
-    title: "Rôles & permissions",
-    description: "Chaque employé n'accède qu'à ce qui le concerne, avec des actions historisées.",
+  },
+  {
+    title: "Pilotage en temps réel",
+    description: "Des métriques, alertes et rapports pensés pour les équipes terrain.",
+    icon: BarChart3,
   },
 ];
 
-const STEPS = [
-  {
-    title: "Enregistrez",
-    description: "Un dépôt, un wallet, une entrée d'argent reçu d'un client — tout est tracé dès le départ.",
-  },
-  {
-    title: "Transformez",
-    description: "L'entrée devient un envoi vers un collaborateur ou un paiement de dette, en un geste.",
-  },
-  {
-    title: "Suivez",
-    description: "Statut, validation, solde partagé et historique complet, consultables à tout moment.",
-  },
+const assurances = [
+  "Mouvements traçables de bout en bout",
+  "Accès par rôles et permissions",
+  "Dashboard, rapports et audit centralisés",
+  "Interface web responsive prête pour l’exploitation",
 ];
 
-export default async function LandingPage() {
-  const session = await getSession();
-  if (session) {
-    redirect(session.isSuperAdmin ? "/admin" : "/dashboard");
-  }
-
+export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight whitespace-nowrap"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Landmark className="size-4" />
+    <main className="relative overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,hsl(173_68%_85%_/_0.25),transparent_30%),radial-gradient(circle_at_top_right,hsl(199_68%_85%_/_0.18),transparent_26%),linear-gradient(180deg,hsl(200_20%_99%),hsl(200_18%_96%))] dark:bg-[radial-gradient(circle_at_top_left,hsl(173_55%_25%_/_0.25),transparent_30%),radial-gradient(circle_at_top_right,hsl(199_55%_25%_/_0.18),transparent_26%),linear-gradient(180deg,hsl(200_22%_8%),hsl(200_22%_6%))]" />
+      <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8 lg:px-10">
+        <header className="flex items-center justify-between rounded-full border border-border/70 bg-background/70 px-4 py-3 shadow-sm backdrop-blur-xl">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm">
+              D
             </span>
-            D-Transfert
+            <span className="hidden sm:block">
+              <span className="block text-sm font-semibold tracking-tight">D-Transfert</span>
+              <span className="block text-xs text-muted-foreground">
+                Gestion financière multi-entreprises
+              </span>
+            </span>
           </Link>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" asChild className="hidden sm:inline-flex">
+
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" asChild className="rounded-full">
               <Link href="/login">Se connecter</Link>
             </Button>
-            <Button asChild size="sm" className="sm:h-9">
+            <Button asChild className="rounded-full">
               <Link href="/register">
-                <span className="sm:hidden">S&apos;inscrire</span>
-                <span className="hidden sm:inline">Inscrire votre entreprise</span>
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1">
-        <section className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 py-24 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-            <Layers className="size-3.5" />
-            Plateforme multi-entreprises
-          </span>
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            Un seul endroit pour vos wallets, envois et paiements collaborateurs
-          </h1>
-          <p className="max-w-2xl text-lg text-muted-foreground text-balance">
-            D-Transfert remplace les suivis manuels sur WhatsApp, cahiers et fichiers Excel. Sachez toujours où
-            est l&apos;argent, qui doit quoi, et quelle action vous attend.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <Button size="lg" asChild>
-              <Link href="/register">
-                Inscrire votre entreprise
+                Créer un compte
                 <ArrowRight />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/login">Se connecter</Link>
-            </Button>
           </div>
-        </section>
+        </header>
 
-        <section className="mx-auto max-w-6xl px-6 pb-20">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map((feature) => (
-              <Card key={feature.title} className="py-5">
-                <CardContent className="flex flex-col gap-3 px-5">
-                  <div className="flex size-9 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                    <feature.icon className="size-4.5" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <h3 className="text-sm font-semibold">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <div className="grid flex-1 items-center gap-8 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary shadow-sm backdrop-blur">
+              <Sparkles className="size-4" />
+              Console professionnelle
+            </div>
 
-        <section className="border-y border-border bg-muted/30 py-20">
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-2xl font-semibold tracking-tight">Comment ça marche</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Trois étapes pour passer d&apos;un montant reçu à un solde à jour, avec preuve à l&apos;appui.
+            <div className="space-y-5">
+              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+                La couche visuelle qu&apos;une plateforme financière sérieuse mérite.
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                D-Transfert centralise wallets, collaborations, envois, paiements, rapports et
+                audit dans une interface pensée pour la lisibilité, la confiance et l&apos;exécution
+                rapide.
               </p>
             </div>
-            <div className="mt-10 grid gap-6 sm:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <div key={step.title} className="flex flex-col gap-2">
-                  <span className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-                    {index + 1}
-                  </span>
-                  <h3 className="text-base font-semibold">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground">{step.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
 
-        <section className="mx-auto max-w-6xl px-6 py-20">
-          <div className="overflow-hidden rounded-xl bg-primary">
-            <div className="relative flex flex-col items-center gap-4 px-8 py-16 text-center text-primary-foreground">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,color-mix(in_oklch,var(--primary-foreground)_12%,transparent),transparent_60%)]" />
-              <h2 className="relative max-w-xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-                Prêt à centraliser vos opérations ?
-              </h2>
-              <p className="relative max-w-md text-sm text-primary-foreground/70">
-                Créez le compte de votre entreprise en quelques minutes, un matricule unique vous est attribué
-                immédiatement.
-              </p>
-              <Button size="lg" variant="secondary" asChild className="relative">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg" className="rounded-full px-6">
                 <Link href="/register">
-                  Inscrire votre entreprise
+                  Démarrer maintenant
                   <ArrowRight />
                 </Link>
               </Button>
+              <Button asChild size="lg" variant="secondary" className="rounded-full px-6">
+                <Link href="/login">Accéder à l&apos;espace de travail</Link>
+              </Button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {highlights.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Card
+                    key={item.title}
+                    className="border-border/70 bg-card/85 shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5"
+                  >
+                    <CardHeader className="space-y-3 p-5">
+                      <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-muted/40 text-primary">
+                        <Icon className="size-5" />
+                      </div>
+                      <CardTitle className="text-base">{item.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="-mt-2 px-5 pb-5 text-sm text-muted-foreground">
+                      {item.description}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
-        </section>
-      </main>
 
-      <footer className="border-t border-border py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 text-xs text-muted-foreground sm:flex-row">
-          <span>© {new Date().getFullYear()} D-Transfert. Plateforme de gestion multi-entreprises.</span>
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="hover:text-foreground">
-              Se connecter
-            </Link>
-            <Link href="/register" className="hover:text-foreground">
-              Inscrire votre entreprise
-            </Link>
+          <div className="relative">
+            <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[linear-gradient(135deg,hsl(173_68%_35%_/_0.16),transparent_45%),linear-gradient(315deg,hsl(199_68%_48%_/_0.12),transparent_38%)] blur-2xl" />
+            <div className="rounded-[2rem] border border-border/70 bg-card/90 p-5 shadow-[0_28px_90px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-6">
+              <div className="rounded-[1.5rem] border border-border/70 bg-background/80 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      Aperçu produit
+                    </p>
+                    <h2 className="mt-1 text-xl font-semibold tracking-tight">
+                      Une interface dense, mais jamais confuse.
+                    </h2>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-muted/40 px-3 py-2 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                      En attente
+                    </div>
+                    <div className="text-sm font-semibold text-warning">12 opérations</div>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Solde principal</div>
+                      <Clock3 className="size-4 text-muted-foreground" />
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                      128 450 GNF
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">Vue consolidée du jour</div>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Traçabilité</div>
+                      <CheckCircle2 className="size-4 text-success" />
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+                      100%
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">Actions historisées</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-border/70 bg-[linear-gradient(180deg,hsl(173_68%_30%_/_0.06),transparent)] p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
+                    Ce que la plateforme couvre
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {assurances.map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-sm"
+                      >
+                        <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </footer>
-    </div>
+
+        <footer className="flex flex-col gap-2 border-t border-border/70 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>Conçu pour des équipes qui gèrent du volume, des validations et de la traçabilité.</p>
+          <p>Interface web responsive. Auth, dashboard et workflows métiers intégrés.</p>
+        </footer>
+      </section>
+    </main>
   );
 }

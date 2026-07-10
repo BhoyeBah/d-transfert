@@ -76,8 +76,11 @@ export function RegisterForm() {
       </div>
 
       <div className="grid gap-1.5">
-        <Label htmlFor="address">Adresse (optionnel)</Label>
-        <Input id="address" name="address" />
+        <Label htmlFor="address">Adresse de l&apos;entreprise</Label>
+        <Input id="address" name="address" required />
+        {state.fieldErrors?.address && (
+          <p className="text-sm text-destructive">{state.fieldErrors.address[0]}</p>
+        )}
       </div>
 
       <div className="grid gap-1.5">

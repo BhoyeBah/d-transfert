@@ -3,12 +3,14 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { getWallet, listWalletMovements } from "@/lib/data/wallets";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { walletTypeLabels } from "@/lib/validation/wallets";
 import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatTile } from "@/components/stat-tile";
 import {
   Table,
   TableBody,
@@ -52,6 +54,21 @@ export default async function WalletDetailPage({
           <ToggleWalletStatusButton walletId={wallet.id} status={wallet.status} />
         </div>
       </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Solde"
+          value={formatMoney(wallet.balance, wallet.currency)}
+          tone={Number(wallet.balance) > 0 ? "success" : "default"}
+        />
+        <StatTile label="Mouvements" value={movements.length} />
+        <StatTile label="Entrées" value={movements.filter((movement) => movement.direction === "in").length} tone="success" />
+        <StatTile
+          label="Sorties"
+          value={movements.filter((movement) => movement.direction === "out").length}
+          tone="destructive"
+        />
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="py-4">
@@ -109,7 +126,11 @@ export default async function WalletDetailPage({
                     <TableCell className="text-xs text-muted-foreground">
                       {formatDate(movement.created_at)}
                     </TableCell>
-                    <TableCell className="text-xs">{movement.source_type}</TableCell>
+                    <TableCell className="text-xs">
+                      <Badge variant="outline" className="w-fit">
+                        {movement.source_type.replaceAll("_", " ")}
+                      </Badge>
+                    </TableCell>
                     <TableCell
                       className={
                         movement.direction === "in"

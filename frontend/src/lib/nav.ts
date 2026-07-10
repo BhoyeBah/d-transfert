@@ -24,7 +24,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: "dashboard", requiredPermission: null },
-  { href: "/notifications", label: "Notifications", icon: "bell", requiredPermission: null },
+  { href: "/company", label: "Entreprise", icon: "building", requiredPermission: null },
   { href: "/wallets", label: "Wallets", icon: "wallet", requiredPermission: PermissionCode.WALLET_MANAGE },
   {
     href: "/national-operations",

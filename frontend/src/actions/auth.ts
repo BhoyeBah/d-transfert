@@ -36,7 +36,7 @@ export async function registerAction(_prevState: ActionState, formData: FormData
   try {
     registration = await serverFetch<RegisterResponse>("/api/v1/auth/register", {
       method: "POST",
-      body: { ...parsed.data, address: parsed.data.address || null },
+      body: parsed.data,
       skipAuth: true,
     });
   } catch (error) {

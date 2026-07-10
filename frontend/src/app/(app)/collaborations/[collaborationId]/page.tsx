@@ -9,9 +9,7 @@ import {
   listPrivateRates,
 } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
-import { formatDate } from "@/lib/format";
-import { sendModeLabels } from "@/lib/validation/transfers";
-import { BalanceCard } from "@/components/balance-card";
+import { formatDate, formatMoney } from "@/lib/format";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,13 +64,13 @@ export default async function CollaborationDetailPage({
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {collaboration.counterparty_company_name}
+            <h1 className="text-lg font-semibold tracking-tight">
+              Collaboration en {collaboration.currency}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {collaboration.counterparty_company_matricule} · {collaboration.currency}
-              {collaboration.note ? ` · ${collaboration.note}` : ""}
+              {collaboration.counterparty_company_name} · {collaboration.counterparty_company_matricule}
             </p>
+            <p className="text-sm text-muted-foreground">{collaboration.note ?? "Aucune note."}</p>
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={collaboration.status} />
@@ -83,15 +81,51 @@ export default async function CollaborationDetailPage({
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card className="py-4">
+          <CardContent className="px-4">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Entreprise partenaire
+            </span>
+            <p className="text-lg font-semibold">{collaboration.counterparty_company_name}</p>
+            <p className="text-sm text-muted-foreground">Matricule {collaboration.counterparty_company_matricule}</p>
+          </CardContent>
+        </Card>
+        <Card className="py-4">
+          <CardContent className="px-4">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Mon rôle
+            </span>
+            <p className="text-lg font-semibold">
+              {collaboration.initiator_company_id === me.company_id ? "Initiateur" : "Sollicité"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {collaboration.initiator_company_id === me.company_id
+                ? "Vous avez initié cette collaboration."
+                : "Votre entreprise a été sollicitée."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {collaboration.status === "accepted" && (
         <div className="grid gap-4 sm:grid-cols-2">
-          {balance && (
-            <BalanceCard
-              counterpartyName={collaboration.counterparty_company_name}
-              balance={balance.balance}
-              currency={balance.currency}
-            />
-          )}
+          <Card className="py-4">
+            <CardContent className="px-4">
+              <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Solde collaborateur
+              </span>
+              {balance && (
+                <p
+                  className={`text-2xl font-semibold tabular-nums ${
+                    Number(balance.balance) < 0 ? "text-destructive" : "text-success"
+                  }`}
+                >
+                  {formatMoney(balance.balance, balance.currency)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
           <Card className="py-4">
             <CardContent className="flex items-center justify-between px-4">
               <div>
@@ -177,7 +211,6 @@ export default async function CollaborationDetailPage({
                   <TableRow>
                     <TableHead>Devise</TableHead>
                     <TableHead>Pays</TableHead>
-                    <TableHead>Type d&apos;opération</TableHead>
                     <TableHead className="text-right">Taux</TableHead>
                     <TableHead>Statut</TableHead>
                   </TableRow>
@@ -187,7 +220,6 @@ export default async function CollaborationDetailPage({
                     <TableRow key={rate.id}>
                       <TableCell>{rate.currency}</TableCell>
                       <TableCell>{rate.country ?? "—"}</TableCell>
-                      <TableCell>{rate.operation_type ? sendModeLabels[rate.operation_type] : "Tous"}</TableCell>
                       <TableCell className="text-right tabular-nums">{rate.rate}</TableCell>
                       <TableCell>
                         <StatusBadge status={rate.is_active ? "active" : "inactive"} />
