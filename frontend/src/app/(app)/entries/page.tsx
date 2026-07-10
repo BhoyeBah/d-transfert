@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { ScrollText } from "lucide-react";
+import { HandCoins, ScrollText, Users } from "lucide-react";
 
-import { listCollaborations } from "@/lib/data/collaborations";
-import { listEntriesPage } from "@/lib/data/entries";
+import { listEntries, listEntriesPage } from "@/lib/data/entries";
 import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Card } from "@/components/ui/card";
+import { StatTile } from "@/components/stat-tile";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { DataTableSearchForm } from "@/components/data-table/search-form";
 import { CreateEntryDialog } from "./create-entry-dialog";
@@ -21,28 +21,45 @@ export default async function EntriesPage({
   searchParams: Promise<DataTableSearchParams>;
 }) {
   const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
-  const [entriesPage, wallets, collaborations] = await Promise.all([
+  const [entriesPage, allEntries, wallets] = await Promise.all([
     listEntriesPage({ page, search, sortBy, sortDir }),
+    listEntries(),
     listWallets(),
-    listCollaborations(),
   ]);
-  const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
+  const entries = entriesPage.items;
+  const mergeableEntriesCount = allEntries.filter(
+    (entry) => entry.status === "unallocated" || entry.status === "partially_allocated"
+  ).length;
+  const entriesWithClientCount = allEntries.filter((entry) => entry.client_name && entry.client_phone).length;
+  const consumedEntriesCount = allEntries.filter((entry) => entry.status === "consumed").length;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Entrées"
-        description="Argent reçu des clients, à transformer en envoi ou en paiement collaborateur."
+        description="Argent reçu des clients, à transformer en envoi ou en paiement client."
         action={<CreateEntryDialog wallets={wallets} />}
       />
 
-      {entriesPage.total === 0 && !search ? (
-        <EmptyState
-          icon={ScrollText}
-          title="Aucune entrée"
-          message="Enregistrez l'argent reçu d'un client pour ensuite le transformer en envoi ou en paiement collaborateur."
-          action={<CreateEntryDialog wallets={wallets} />}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Entrées total" value={entriesPage.total} icon={ScrollText} />
+        <StatTile
+          label="À fusionner"
+          value={mergeableEntriesCount}
+          icon={Users}
+          hint="Disponibles ou partiellement affectées"
         />
+        <StatTile
+          label="Avec client"
+          value={entriesWithClientCount}
+          icon={HandCoins}
+          hint="Nom et téléphone renseignés"
+        />
+        <StatTile label="Consommées" value={consumedEntriesCount} tone="success" />
+      </section>
+
+      {entriesPage.total === 0 && !search ? (
+        <EmptyState message="Aucune entrée enregistrée." />
       ) : (
         <div className="flex flex-col gap-4">
           <DataTableSearchForm
@@ -52,17 +69,10 @@ export default async function EntriesPage({
             placeholder="Rechercher une entrée…"
           />
           <Card className="py-4">
-            {entriesPage.items.length === 0 ? (
+            {entries.length === 0 ? (
               <EmptyState message="Aucune entrée ne correspond à cette recherche." />
             ) : (
-              <EntriesTable
-                entries={entriesPage.items}
-                collaborations={acceptedCollaborations}
-                wallets={wallets}
-                sortBy={sortBy}
-                sortDir={sortDir}
-                search={search}
-              />
+              <EntriesTable entries={entries} sortBy={sortBy} sortDir={sortDir} search={search} />
             )}
             <DataTablePagination
               page={entriesPage.page}

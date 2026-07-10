@@ -85,6 +85,22 @@ export default async function TransferDetailPage({
             <CardTitle>Détails</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
+            {transfer.entry_id && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Entrée source</span>
+                <Link href={`/entries/${transfer.entry_id}`} className="font-medium hover:underline">
+                  {transfer.entry_id.slice(0, 8)}
+                </Link>
+              </div>
+            )}
+            {transfer.client_id && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Client</span>
+                <Link href={`/clients/${transfer.client_id}`} className="font-medium hover:underline">
+                  {transfer.client_id.slice(0, 8)}
+                </Link>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Montant</span>
               <AmountDisplay value={transfer.amount} currency={transfer.currency} size="md" />

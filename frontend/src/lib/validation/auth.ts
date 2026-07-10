@@ -6,7 +6,7 @@ export const registerSchema = z
   .object({
     company_name: z.string().min(2, "2 caractères minimum.").max(255),
     company_phone: z.string().min(6, "Numéro de téléphone invalide.").max(32),
-    address: z.string().max(255).optional().or(z.literal("")),
+    address: z.string().min(2, "Adresse requise.").max(255),
     default_currency: z.enum(SUPPORTED_CURRENCIES, {
       message: "Choisissez une devise.",
     }),

@@ -13,23 +13,23 @@ export function StatTile({
   label: string;
   value: React.ReactNode;
   icon?: LucideIcon;
-  tone?: "default" | "warning" | "destructive" | "success" | "pending";
+  tone?: "default" | "warning" | "destructive" | "success";
   hint?: string;
 }) {
   return (
-    <Card className="gap-3 py-4">
-      <CardContent className="flex items-start justify-between gap-3 px-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+    <Card className="group relative overflow-hidden border-border/70 bg-card/85 shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      <CardContent className="flex items-start justify-between gap-4 p-5">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
             {label}
           </span>
           <span
             className={cn(
-              "text-2xl font-semibold tabular-nums",
+              "text-2xl font-semibold tracking-tight tabular-nums sm:text-[1.75rem]",
               tone === "warning" && "text-warning",
               tone === "destructive" && "text-destructive",
-              tone === "success" && "text-success",
-              tone === "pending" && "text-pending"
+              tone === "success" && "text-success"
             )}
           >
             {value}
@@ -39,14 +39,13 @@ export function StatTile({
         {Icon && (
           <div
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground",
-              tone === "warning" && "bg-warning/15 text-warning",
-              tone === "destructive" && "bg-destructive/10 text-destructive",
-              tone === "success" && "bg-success/15 text-success",
-              tone === "pending" && "bg-pending/10 text-pending"
+              "flex size-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-accent/70 text-accent-foreground shadow-sm transition-transform group-hover:scale-105",
+              tone === "warning" && "border-warning/20 bg-warning/10 text-warning",
+              tone === "destructive" && "border-destructive/20 bg-destructive/10 text-destructive",
+              tone === "success" && "border-success/20 bg-success/10 text-success"
             )}
           >
-            <Icon className="size-4.5" />
+            <Icon className="size-5" />
           </div>
         )}
       </CardContent>

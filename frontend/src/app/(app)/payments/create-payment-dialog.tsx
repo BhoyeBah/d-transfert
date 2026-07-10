@@ -8,7 +8,6 @@ import { toast } from "sonner";
 
 import { createPaymentAction } from "@/actions/payments";
 import { createPaymentSchema, type CreatePaymentFormValues } from "@/lib/validation/payments";
-import { RELIQUAT_ACTIONS, reliquatActionLabels } from "@/lib/validation/transfers";
 import type { Collaboration, Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,42 +27,40 @@ export function CreatePaymentDialog({
   collaborations,
   entries,
   wallets,
-  defaultEntryId,
+  initialEntryId,
+  initialOpen = false,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
   wallets: Wallet[];
-  /** Pré-sélectionne et verrouille une entrée (bouton "Transformer en paiement" depuis une entrée). */
-  defaultEntryId?: string;
+  initialEntryId?: string | null;
+  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [source, setSource] = useState<Source>(defaultEntryId ? "entry" : "none");
+  const [open, setOpen] = useState(initialOpen || Boolean(initialEntryId));
+  const [source, setSource] = useState<Source>(initialEntryId ? "entry" : "none");
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreatePaymentFormValues>({
-    resolver: zodResolver(createPaymentSchema),
-    defaultValues: { entry_id: defaultEntryId },
-  });
+  } = useForm<CreatePaymentFormValues>({ resolver: zodResolver(createPaymentSchema) });
 
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
-  const lockedEntry = defaultEntryId ? entries.find((entry) => entry.id === defaultEntryId) : undefined;
-  const collaborationId = watch("collaboration_id");
-  const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
+  const initialEntry = initialEntryId ? entries.find((entry) => entry.id === initialEntryId) : undefined;
 
-  // Cf. envois : la devise proposée doit refléter la collaboration choisie, sinon elle reste
-  // vide ou obsolète si l'utilisateur change de collaboration après coup.
   useEffect(() => {
-    if (selectedCollaboration) {
-      setValue("currency", selectedCollaboration.currency);
+    if (!initialEntryId) return;
+    setValue("entry_id", initialEntryId);
+    if (initialEntry?.client_name) {
+      setValue("client_name", initialEntry.client_name);
     }
-  }, [selectedCollaboration, setValue]);
+    if (initialEntry?.client_phone) {
+      setValue("client_phone", initialEntry.client_phone);
+    }
+  }, [initialEntry, initialEntryId, setValue]);
 
   function changeSource(next: Source) {
     setSource(next);
@@ -77,27 +74,25 @@ export function CreatePaymentDialog({
       toast.error(result.message);
       return;
     }
-    toast.success(`Paiement ${result.data.reference} créé.`);
+    toast.success(`Paiement client ${result.data.reference} créé.`);
     setOpen(false);
     reset();
-    setSource(defaultEntryId ? "entry" : "none");
+    setSource("none");
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={defaultEntryId ? "outline" : "default"} size={defaultEntryId ? "sm" : "default"}>
+        <Button>
           <PlusIcon />
-          {defaultEntryId ? "Transformer en paiement" : "Nouveau paiement"}
+          Nouveau paiement client
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {defaultEntryId ? "Transformer l'entrée en paiement collaborateur" : "Créer un paiement collaborateur"}
-          </DialogTitle>
+          <DialogTitle>Créer un paiement client</DialogTitle>
           <DialogDescription>
-            Règle une dette existante (via une entrée) ou constitue un paiement direct depuis un wallet.
+            Règle une dette client existante (via une entrée) ou constitue un paiement direct depuis un wallet.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -111,8 +106,6 @@ export function CreatePaymentDialog({
               <option value="">Choisir…</option>
               {collaborations.map((collaboration) => (
                 <option key={collaboration.id} value={collaboration.id}>
-                  {collaboration.counterparty_company_name} ({collaboration.counterparty_company_matricule})
-                  {" · "}
                   {collaboration.currency} · taux {collaboration.current_rate}
                 </option>
               ))}
@@ -122,71 +115,38 @@ export function CreatePaymentDialog({
             )}
           </div>
 
-          {!defaultEntryId && (
-            <div className="grid gap-1.5">
-              <Label>Source des fonds</Label>
-              <div className="flex gap-2">
-                {(["none", "entry", "wallet"] as const).map((value) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    size="sm"
-                    variant={source === value ? "default" : "outline"}
-                    onClick={() => changeSource(value)}
-                  >
-                    {value === "none" ? "Aucune" : value === "entry" ? "Depuis une entrée" : "Depuis un wallet"}
-                  </Button>
-                ))}
-              </div>
+          <div className="grid gap-1.5">
+            <Label>Source des fonds</Label>
+            <div className="flex gap-2">
+              {(["none", "entry", "wallet"] as const).map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={source === value ? "default" : "outline"}
+                  onClick={() => changeSource(value)}
+                >
+                  {value === "none" ? "Aucune" : value === "entry" ? "Depuis une entrée" : "Depuis un wallet"}
+                </Button>
+              ))}
             </div>
-          )}
+          </div>
 
           {source === "entry" && (
             <div className="grid gap-1.5">
               <Label htmlFor="entry_id">Entrée</Label>
-              {defaultEntryId ? (
-                <>
-                  <div className="flex h-9 items-center rounded-md border border-input bg-muted px-2 text-sm text-muted-foreground">
-                    {lockedEntry?.reference ?? defaultEntryId} —{" "}
-                    {lockedEntry
-                      ? Object.entries(lockedEntry.available_by_currency)
-                          .map(([currency, amount]) => `${amount} ${currency}`)
-                          .join(", ")
-                      : ""}
-                  </div>
-                  <input type="hidden" {...register("entry_id")} />
-                </>
-              ) : (
-                <select
-                  id="entry_id"
-                  {...register("entry_id")}
-                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-                >
-                  <option value="">Choisir…</option>
-                  {eligibleEntries.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.reference} —{" "}
-                      {Object.entries(entry.available_by_currency)
-                        .map(([currency, amount]) => `${amount} ${currency}`)
-                        .join(", ")}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {source === "entry" && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="reliquat_action">Si le montant est inférieur au disponible de l&apos;entrée</Label>
               <select
-                id="reliquat_action"
-                {...register("reliquat_action")}
+                id="entry_id"
+                {...register("entry_id")}
                 className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
               >
-                {RELIQUAT_ACTIONS.map((action) => (
-                  <option key={action} value={action}>
-                    {reliquatActionLabels[action]}
+                <option value="">Choisir…</option>
+                {eligibleEntries.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.reference} —{" "}
+                    {Object.entries(entry.available_by_currency)
+                      .map(([currency, amount]) => `${amount} ${currency}`)
+                      .join(", ")}
                   </option>
                 ))}
               </select>
@@ -231,7 +191,7 @@ export function CreatePaymentDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="client_name">Client (si le client vous doit ce montant)</Label>
+              <Label htmlFor="client_name">Client (si dépassement)</Label>
               <Input id="client_name" {...register("client_name")} />
             </div>
             <div className="grid gap-1.5">
@@ -239,10 +199,6 @@ export function CreatePaymentDialog({
               <Input id="client_phone" {...register("client_phone")} />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Sans entrée sélectionnée, renseigner un client enregistre une dette client pour la
-            totalité du montant. Avec une entrée, seul le manquant devient une dette client.
-          </p>
           <div className="grid gap-1.5">
             <Label htmlFor="note">Note (optionnel)</Label>
             <Input id="note" {...register("note")} />
@@ -250,7 +206,7 @@ export function CreatePaymentDialog({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Création..." : "Créer le paiement"}
+              {isSubmitting ? "Création..." : "Créer le paiement client"}
             </Button>
           </div>
         </form>

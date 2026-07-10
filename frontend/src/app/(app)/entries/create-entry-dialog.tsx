@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon, Trash2Icon } from "lucide-react";
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 
 export function CreateEntryDialog({ wallets }: { wallets: Wallet[] }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   const {
     register,
@@ -45,6 +47,7 @@ export function CreateEntryDialog({ wallets }: { wallets: Wallet[] }) {
     toast.success(`Entrée ${result.data.reference} enregistrée.`);
     setOpen(false);
     reset();
+    router.push(`/entries/${result.data.id}`);
   }
 
   return (

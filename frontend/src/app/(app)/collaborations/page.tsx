@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Building2 } from "lucide-react";
+import { Clock, Link2, Users } from "lucide-react";
 
 import { getCompanyMe } from "@/lib/data/company";
-import { listCollaborationsPage } from "@/lib/data/collaborations";
+import { listCollaborations, listCollaborationsPage } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { StatTile } from "@/components/stat-tile";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { DataTableSearchForm } from "@/components/data-table/search-form";
 import { SortableHeader } from "@/components/data-table/sortable-header";
@@ -23,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RequestCollaborationDialog } from "./request-collaboration-dialog";
+import { CollaborationRowActions } from "./collaboration-row-actions";
 
 export const metadata: Metadata = { title: "Collaborations — D-Transfert" };
 
@@ -32,12 +34,16 @@ export default async function CollaborationsPage({
   searchParams: Promise<DataTableSearchParams>;
 }) {
   const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
-  const [collaborationsPage, company, me] = await Promise.all([
+  const [collaborationsPage, allCollaborations, company, me] = await Promise.all([
     listCollaborationsPage({ page, search, sortBy, sortDir }),
+    listCollaborations(),
     getCompanyMe(),
     getMe(),
   ]);
   const collaborations = collaborationsPage.items;
+  const acceptedCount = allCollaborations.filter((collaboration) => collaboration.status === "accepted").length;
+  const pendingCount = allCollaborations.filter((collaboration) => collaboration.status === "pending").length;
+  const withRateCount = allCollaborations.filter((collaboration) => collaboration.current_rate !== null).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,13 +53,25 @@ export default async function CollaborationsPage({
         action={<RequestCollaborationDialog defaultCurrency={company.default_currency} />}
       />
 
-      {collaborationsPage.total === 0 && !search ? (
-        <EmptyState
-          icon={Building2}
-          title="Aucune collaboration"
-          message="Envoyez une demande à une entreprise partenaire par son matricule pour commencer à échanger des envois internationaux."
-          action={<RequestCollaborationDialog defaultCurrency={company.default_currency} />}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Collaborations" value={collaborationsPage.total} icon={Users} />
+        <StatTile
+          label="Acceptées"
+          value={acceptedCount}
+          icon={Link2}
+          tone={acceptedCount > 0 ? "success" : "default"}
         />
+        <StatTile
+          label="En attente"
+          value={pendingCount}
+          icon={Clock}
+          tone={pendingCount > 0 ? "warning" : "default"}
+        />
+        <StatTile label="Avec taux" value={withRateCount} icon={Link2} hint="Taux collaboratif actif" />
+      </section>
+
+      {collaborationsPage.total === 0 && !search ? (
+        <EmptyState message="Aucune collaboration pour le moment." />
       ) : (
         <div className="flex flex-col gap-4">
           <DataTableSearchForm
@@ -69,7 +87,7 @@ export default async function CollaborationsPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Entreprise</TableHead>
+                    <TableHead>Partenaire</TableHead>
                     <TableHead>Rôle</TableHead>
                     <SortableHeader
                       column="currency"
@@ -93,21 +111,24 @@ export default async function CollaborationsPage({
                       currentDir={sortDir}
                       search={search}
                     />
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {collaborations.map((collaboration) => (
                     <TableRow key={collaboration.id}>
-                      <TableCell>
-                        <Link href={`/collaborations/${collaboration.id}`} className="font-medium hover:underline">
-                          {collaboration.counterparty_company_name}
-                        </Link>
-                        <div className="font-mono text-xs text-muted-foreground">
-                          {collaboration.counterparty_company_matricule}
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col">
+                          <span>{collaboration.counterparty_company_name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {collaboration.counterparty_company_matricule}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {collaboration.initiator_company_id === me.company_id ? "Initiateur" : "Sollicité"}
+                      <TableCell>
+                        <Badge variant={collaboration.initiator_company_id === me.company_id ? "default" : "outline"}>
+                          {collaboration.initiator_company_id === me.company_id ? "Initiateur" : "Sollicité"}
+                        </Badge>
                       </TableCell>
                       <TableCell>{collaboration.currency}</TableCell>
                       <TableCell>
@@ -118,6 +139,12 @@ export default async function CollaborationsPage({
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDate(collaboration.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <CollaborationRowActions
+                          collaboration={collaboration}
+                          isTarget={collaboration.target_company_id === me.company_id}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

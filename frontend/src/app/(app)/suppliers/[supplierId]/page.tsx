@@ -8,6 +8,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { supplierMovementTypeLabels } from "@/lib/validation/suppliers";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatTile } from "@/components/stat-tile";
 import {
   Table,
   TableBody,
@@ -31,6 +32,8 @@ export default async function SupplierDetailPage({
     listSupplierMovements(supplierId),
     listWallets(),
   ]);
+  const debtMovements = movements.filter((movement) => movement.type === "debt").length;
+  const paymentMovements = movements.filter((movement) => movement.type === "payment").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,6 +74,17 @@ export default async function SupplierDetailPage({
           </div>
         </div>
       </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Solde"
+          value={formatMoney(supplier.balance, supplier.currency)}
+          tone={Number(supplier.balance) > 0 ? "destructive" : "success"}
+        />
+        <StatTile label="Mouvements" value={movements.length} />
+        <StatTile label="Dettes" value={debtMovements} tone="destructive" />
+        <StatTile label="Paiements" value={paymentMovements} tone="success" />
+      </section>
 
       <Card>
         <CardHeader>

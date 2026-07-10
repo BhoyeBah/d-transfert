@@ -135,13 +135,24 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-ibm-plex-mono);
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, hsl(173 60% 85% / 0.22), transparent 30%),
+    radial-gradient(circle at top right, hsl(199 70% 84% / 0.16), transparent 28%),
+    linear-gradient(180deg, hsl(200 20% 99%), hsl(200 18% 96%));
   color: var(--foreground);
+  background-attachment: fixed;
+  font-feature-settings: "ss01" 1, "cv10" 1;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 * {
@@ -151,4 +162,33 @@ body {
 ::selection {
   background: var(--accent);
   color: var(--accent-foreground);
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, hsl(170 55% 18% / 0.38), transparent 30%),
+    radial-gradient(circle at top right, hsl(205 40% 15% / 0.28), transparent 28%),
+    linear-gradient(180deg, hsl(200 22% 8%), hsl(200 22% 6%));
+}
+
+.app-shell-frame {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-shell-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, hsl(173 68% 30% / 0.08), transparent 28%),
+    linear-gradient(315deg, hsl(199 68% 48% / 0.05), transparent 24%);
+  opacity: 0.9;
+}
+
+.dark .app-shell-frame::before {
+  background:
+    linear-gradient(135deg, hsl(173 68% 40% / 0.11), transparent 30%),
+    linear-gradient(315deg, hsl(199 68% 48% / 0.08), transparent 22%);
 }
