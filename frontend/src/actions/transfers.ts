@@ -43,14 +43,24 @@ export async function createTransferAction(
   }
 }
 
-export async function approveTransferAction(transferId: string, walletId: string): Promise<MutationResult> {
+export async function approveTransferAction(
+  transferId: string,
+  walletId: string,
+  proofFile: File | null
+): Promise<MutationResult> {
   if (!walletId) {
     return { ok: false, message: "Sélectionnez le wallet ayant servi à payer le bénéficiaire." };
   }
+  if (!proofFile || proofFile.size === 0) {
+    return { ok: false, message: "Une preuve du paiement (image ou PDF) est requise pour approuver." };
+  }
   try {
+    const uploadFormData = new FormData();
+    uploadFormData.set("file", proofFile);
+    const proof = await serverFetchMultipart<Proof>(`/api/v1/transfers/${transferId}/proofs`, uploadFormData);
     await serverFetch(`/api/v1/transfers/${transferId}/approve`, {
       method: "POST",
-      body: { wallet_id: walletId },
+      body: { wallet_id: walletId, proof_id: proof.id },
     });
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, message: error.message };

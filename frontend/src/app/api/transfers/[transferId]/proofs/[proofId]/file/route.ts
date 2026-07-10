@@ -28,7 +28,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": response.headers.get("content-type") ?? "application/octet-stream",
-      "Content-Disposition": response.headers.get("content-disposition") ?? "attachment",
+      "Content-Disposition": response.headers.get("content-disposition") ?? "inline",
     },
   });
 }

@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -34,8 +35,9 @@ export function TransferDecisionButtons({
 
   function approve(formData: FormData) {
     const walletId = String(formData.get("wallet_id") ?? "");
+    const proofFile = formData.get("proof") as File | null;
     startTransition(async () => {
-      const result = await approveTransferAction(transferId, walletId);
+      const result = await approveTransferAction(transferId, walletId, proofFile);
       if (!result.ok) {
         toast.error(result.message);
         return;
@@ -73,7 +75,7 @@ export function TransferDecisionButtons({
             <DialogTitle>Approuver l&apos;envoi</DialogTitle>
             <DialogDescription>
               Sélectionnez le wallet depuis lequel vous avez payé le bénéficiaire — son solde sera
-              débité du montant converti.
+              débité du montant converti — et joignez la preuve du paiement (image ou PDF).
             </DialogDescription>
           </DialogHeader>
           <form action={approve} className="flex flex-col gap-4">
@@ -97,6 +99,16 @@ export function TransferDecisionButtons({
                   Aucun wallet actif dans la devise requise. Créez-en un avant d&apos;approuver.
                 </p>
               )}
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="proof">Preuve du paiement</Label>
+              <Input
+                id="proof"
+                name="proof"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                required
+              />
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isPending || wallets.length === 0}>
