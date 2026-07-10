@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { mergeEntriesAction } from "@/actions/entries";
 import { formatDate, formatMoney } from "@/lib/format";
+import type { SortDir } from "@/lib/data-table";
 import type { Collaboration, Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableHeader } from "@/components/data-table/sortable-header";
 import { StatusBadge } from "@/components/status-badge";
 import { CreatePaymentDialog } from "@/app/(app)/payments/create-payment-dialog";
 import { CreateTransferDialog } from "@/app/(app)/transfers/create-transfer-dialog";
@@ -53,10 +55,16 @@ export function EntriesTable({
   entries,
   collaborations,
   wallets,
+  sortBy,
+  sortDir,
+  search,
 }: {
   entries: Entry[];
   collaborations: Collaboration[];
   wallets: Wallet[];
+  sortBy?: string;
+  sortDir?: SortDir;
+  search?: string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -98,12 +106,12 @@ export function EntriesTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-8" />
-            <TableHead>Référence</TableHead>
+            <SortableHeader column="reference" label="Référence" currentSort={sortBy} currentDir={sortDir} search={search} />
             <TableHead>Statut</TableHead>
             <TableHead>Client</TableHead>
             <TableHead className="text-right">Montant reçu</TableHead>
             <TableHead className="text-right">Disponible</TableHead>
-            <TableHead>Date</TableHead>
+            <SortableHeader column="created_at" label="Date" currentSort={sortBy} currentDir={sortDir} search={search} />
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>

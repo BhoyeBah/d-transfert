@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,11 +9,13 @@ from app.models.supplier import Supplier
 from app.models.supplier_balance_movement import SupplierBalanceMovement, SupplierMovementType
 from app.models.wallet_movement import MovementDirection
 from app.repositories import supplier_repository, wallet_repository
+from app.schemas.pagination import PageParams
 from app.schemas.supplier import SupplierCreateRequest, SupplierRebalanceRequest
 from app.services import audit_service, wallet_service
-from app.utils.reference import generate_supplier_movement_reference
+from app.utils.reference import daily_sequence_prefix, format_daily_reference
 
 REFERENCE_MAX_RETRIES = 5
+REFERENCE_PREFIX = "SR"
 _CENTS = Decimal("0.01")
 
 
@@ -20,10 +23,13 @@ def _quantize(amount: Decimal) -> Decimal:
     return amount.quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
-async def _generate_unique_reference(session: AsyncSession) -> str:
-    for _ in range(REFERENCE_MAX_RETRIES):
-        candidate = generate_supplier_movement_reference()
-        if await supplier_repository.get_by_reference(session, candidate) is None:
+async def _generate_unique_reference(session: AsyncSession, company_id: uuid.UUID) -> str:
+    today = date.today()
+    prefix = daily_sequence_prefix(REFERENCE_PREFIX, today)
+    base_count = await supplier_repository.count_by_company_and_reference_prefix(session, company_id, prefix)
+    for attempt in range(REFERENCE_MAX_RETRIES):
+        candidate = format_daily_reference(REFERENCE_PREFIX, today, base_count + 1 + attempt)
+        if await supplier_repository.get_by_company_and_reference(session, company_id, candidate) is None:
             return candidate
     raise ConflictError("Impossible de générer une référence unique, réessayez.")
 
@@ -60,6 +66,14 @@ async def list_suppliers(session: AsyncSession, company_id: uuid.UUID) -> list[S
     return await supplier_repository.list_by_company(session, company_id)
 
 
+async def list_suppliers_page(
+    session: AsyncSession, company_id: uuid.UUID, params: PageParams
+) -> tuple[list[Supplier], int]:
+    return await supplier_repository.list_by_company_page(
+        session, company_id, params.page, params.page_size, params.search, params.sort_by, params.sort_dir
+    )
+
+
 async def get_movements(
     session: AsyncSession, company_id: uuid.UUID, supplier_id: uuid.UUID
 ) -> list[SupplierBalanceMovement]:
@@ -86,7 +100,7 @@ async def rebalance_supplier(
         )
 
     amount = _quantize(payload.amount)
-    reference = await _generate_unique_reference(session)
+    reference = await _generate_unique_reference(session, company_id)
     balance_before = supplier.balance
 
     if payload.type == SupplierMovementType.DEBT:
@@ -108,6 +122,7 @@ async def rebalance_supplier(
     )
 
     movement = SupplierBalanceMovement(
+        company_id=company_id,
         supplier_id=supplier.id,
         reference=reference,
         wallet_id=wallet.id,

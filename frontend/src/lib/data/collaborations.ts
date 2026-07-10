@@ -1,15 +1,27 @@
 import "server-only";
 
 import { serverFetch } from "@/lib/api";
+import { buildPageQuery, type DataTableParams } from "@/lib/data-table";
 import type {
   Collaboration,
   CollaborationRateHistoryEntry,
   CollaboratorBalance,
+  Page,
   PrivateRate,
 } from "@/types/api";
 
 export async function listCollaborations(): Promise<Collaboration[]> {
   return serverFetch<Collaboration[]>("/api/v1/collaborations");
+}
+
+export async function listCollaborationsPage(params: DataTableParams): Promise<Page<Collaboration>> {
+  const query = buildPageQuery({
+    page: params.page,
+    search: params.search,
+    sort_by: params.sortBy,
+    sort_dir: params.sortDir,
+  });
+  return serverFetch<Page<Collaboration>>(`/api/v1/collaborations/page${query}`);
 }
 
 export async function getCollaboration(collaborationId: string): Promise<Collaboration> {

@@ -6,11 +6,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.collaboration import Collaboration
 from app.models.transfer import Transfer, TransferStatusHistory
+from app.utils.pagination import paginate
+
+_SORTABLE_COLUMNS = {
+    "reference": Transfer.reference,
+    "amount": Transfer.amount,
+    "created_at": Transfer.created_at,
+}
 
 
-async def get_by_reference(session: AsyncSession, reference: str) -> Transfer | None:
-    result = await session.execute(select(Transfer).where(Transfer.reference == reference))
+async def get_by_company_and_reference(
+    session: AsyncSession, company_id: uuid.UUID, reference: str
+) -> Transfer | None:
+    result = await session.execute(
+        select(Transfer).where(Transfer.company_id == company_id, Transfer.reference == reference)
+    )
     return result.scalar_one_or_none()
+
+
+async def count_by_company_and_reference_prefix(
+    session: AsyncSession, company_id: uuid.UUID, prefix: str
+) -> int:
+    result = await session.execute(
+        select(func.count()).select_from(Transfer).where(
+            Transfer.company_id == company_id, Transfer.reference.like(f"{prefix}%")
+        )
+    )
+    return int(result.scalar_one())
 
 
 async def get_by_id(session: AsyncSession, transfer_id: uuid.UUID) -> Transfer | None:
@@ -35,6 +57,39 @@ async def list_for_company(session: AsyncSession, company_id: uuid.UUID) -> list
         .order_by(Transfer.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def list_for_company_page(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_dir: str = "desc",
+) -> tuple[list[Transfer], int]:
+    stmt = (
+        select(Transfer)
+        .join(Collaboration, Collaboration.id == Transfer.collaboration_id)
+        .where(
+            or_(
+                Collaboration.initiator_company_id == company_id,
+                Collaboration.target_company_id == company_id,
+            )
+        )
+    )
+    if search:
+        pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                Transfer.reference.ilike(pattern),
+                Transfer.beneficiary_name.ilike(pattern),
+                Transfer.beneficiary_phone.ilike(pattern),
+            )
+        )
+    column = _SORTABLE_COLUMNS.get(sort_by, Transfer.created_at)
+    stmt = stmt.order_by(column.asc() if sort_dir == "asc" else column.desc())
+    return await paginate(session, stmt, page, page_size)
 
 
 async def add_status_history(

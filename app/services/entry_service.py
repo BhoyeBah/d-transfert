@@ -1,5 +1,6 @@
 import uuid
 from collections import defaultdict
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +12,12 @@ from app.models.entry_line import EntryLine
 from app.models.wallet_movement import MovementDirection
 from app.repositories import entry_repository, wallet_repository
 from app.schemas.entry import EntryCreateRequest, EntryMergeRequest
+from app.schemas.pagination import PageParams
 from app.services import audit_service, wallet_service
-from app.utils.reference import generate_entry_reference
+from app.utils.reference import daily_sequence_prefix, format_daily_reference
 
 REFERENCE_MAX_RETRIES = 5
+REFERENCE_PREFIX = "EN"
 
 MERGEABLE_STATUSES = (EntryStatus.UNALLOCATED, EntryStatus.PARTIALLY_ALLOCATED)
 
@@ -25,10 +28,13 @@ def _quantize(amount: Decimal) -> Decimal:
     return amount.quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
-async def _generate_unique_reference(session: AsyncSession) -> str:
-    for _ in range(REFERENCE_MAX_RETRIES):
-        candidate = generate_entry_reference()
-        if await entry_repository.get_by_reference(session, candidate) is None:
+async def _generate_unique_reference(session: AsyncSession, company_id: uuid.UUID) -> str:
+    today = date.today()
+    prefix = daily_sequence_prefix(REFERENCE_PREFIX, today)
+    already_issued = await entry_repository.count_by_company_and_reference_prefix(session, company_id, prefix)
+    for attempt in range(REFERENCE_MAX_RETRIES):
+        candidate = format_daily_reference(REFERENCE_PREFIX, today, already_issued + 1 + attempt)
+        if await entry_repository.get_by_company_and_reference(session, company_id, candidate) is None:
             return candidate
     raise ConflictError("Impossible de générer une référence unique, réessayez.")
 
@@ -86,7 +92,7 @@ async def create_entry(
                 f"{wallet.name} ({wallet.currency})."
             )
 
-    reference = await _generate_unique_reference(session)
+    reference = await _generate_unique_reference(session, company_id)
     entry = Entry(
         company_id=company_id,
         reference=reference,
@@ -145,6 +151,20 @@ async def list_entries(
     return results
 
 
+async def list_entries_page(
+    session: AsyncSession, company_id: uuid.UUID, params: PageParams
+) -> tuple[list[tuple[Entry, list[EntryLine], list[EntryAllocation]]], int]:
+    entries, total = await entry_repository.list_by_company_page(
+        session, company_id, params.page, params.page_size, params.search, params.sort_by, params.sort_dir
+    )
+    results = []
+    for entry in entries:
+        lines = await entry_repository.get_lines(session, entry.id)
+        allocations = await entry_repository.get_allocations(session, entry.id)
+        results.append((entry, lines, allocations))
+    return results, total
+
+
 async def merge_entries(
     session: AsyncSession, company_id: uuid.UUID, created_by_id: uuid.UUID, payload: EntryMergeRequest
 ) -> tuple[Entry, list[EntryLine]]:
@@ -187,7 +207,7 @@ async def merge_entries(
         for line in lines:
             aggregated[(line.wallet_id, line.currency)] += _quantize(line.amount)
 
-    reference = await _generate_unique_reference(session)
+    reference = await _generate_unique_reference(session, company_id)
     merged_entry = Entry(
         company_id=company_id,
         reference=reference,

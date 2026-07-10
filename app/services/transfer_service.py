@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,11 +18,13 @@ from app.repositories import (
     proof_repository,
     transfer_repository,
 )
+from app.schemas.pagination import PageParams
 from app.schemas.transfer import TransferCreateRequest
 from app.services import audit_service, client_service, entry_service, notification_service
-from app.utils.reference import generate_transfer_reference
+from app.utils.reference import daily_sequence_prefix, format_daily_reference
 
 REFERENCE_MAX_RETRIES = 5
+REFERENCE_PREFIX = "TR"
 _CENTS = Decimal("0.01")
 
 
@@ -30,10 +32,13 @@ def _quantize(amount: Decimal) -> Decimal:
     return amount.quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
-async def _generate_unique_reference(session: AsyncSession) -> str:
-    for _ in range(REFERENCE_MAX_RETRIES):
-        candidate = generate_transfer_reference()
-        if await transfer_repository.get_by_reference(session, candidate) is None:
+async def _generate_unique_reference(session: AsyncSession, company_id: uuid.UUID) -> str:
+    today = date.today()
+    prefix = daily_sequence_prefix(REFERENCE_PREFIX, today)
+    already_issued = await transfer_repository.count_by_company_and_reference_prefix(session, company_id, prefix)
+    for attempt in range(REFERENCE_MAX_RETRIES):
+        candidate = format_daily_reference(REFERENCE_PREFIX, today, already_issued + 1 + attempt)
+        if await transfer_repository.get_by_company_and_reference(session, company_id, candidate) is None:
             return candidate
     raise ConflictError("Impossible de générer une référence unique, réessayez.")
 
@@ -165,7 +170,7 @@ async def create_transfer(
         client_phone = payload.client_phone or (entry.client_phone if entry is not None else None)
         client = await client_service.get_or_create_client(session, company_id, client_name, client_phone)
 
-    reference = await _generate_unique_reference(session)
+    reference = await _generate_unique_reference(session, company_id)
     transfer = Transfer(
         company_id=company_id,
         collaboration_id=collaboration.id,
@@ -419,6 +424,14 @@ async def get_transfer(session: AsyncSession, company_id: uuid.UUID, transfer_id
 
 async def list_transfers(session: AsyncSession, company_id: uuid.UUID) -> list[Transfer]:
     return await transfer_repository.list_for_company(session, company_id)
+
+
+async def list_transfers_page(
+    session: AsyncSession, company_id: uuid.UUID, params: PageParams
+) -> tuple[list[Transfer], int]:
+    return await transfer_repository.list_for_company_page(
+        session, company_id, params.page, params.page_size, params.search, params.sort_by, params.sort_dir
+    )
 
 
 async def get_status_history(
