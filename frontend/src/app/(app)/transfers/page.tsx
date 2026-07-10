@@ -4,7 +4,9 @@ import { ArrowLeftRight, Clock, HandCoins, Wallet } from "lucide-react";
 
 import { listCollaborations, listPrivateRates } from "@/lib/data/collaborations";
 import { listEntries } from "@/lib/data/entries";
+import { getMe } from "@/lib/data/me";
 import { listTransfers, listTransfersPage } from "@/lib/data/transfers";
+import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate, formatMoney } from "@/lib/format";
 import { sendModeLabels } from "@/lib/validation/transfers";
@@ -26,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateTransferDialog } from "./create-transfer-dialog";
+import { CancelTransferButton, TransferDecisionButtons } from "./[transferId]/transfer-decision-buttons";
 
 export const metadata: Metadata = { title: "Envois internationaux — D-Transfert" };
 
@@ -36,12 +39,14 @@ export default async function TransfersPage({
 }) {
   const rawParams = await searchParams;
   const { page, search, sortBy, sortDir } = parseDataTableParams(rawParams);
-  const [transfersPage, allTransfers, collaborations, entries, privateRates] = await Promise.all([
+  const [transfersPage, allTransfers, collaborations, entries, privateRates, wallets, me] = await Promise.all([
     listTransfersPage({ page, search, sortBy, sortDir }),
     listTransfers(),
     listCollaborations(),
     listEntries(),
     listPrivateRates(),
+    listWallets(),
+    getMe(),
   ]);
   const transfers = transfersPage.items;
   const entryReferenceById = new Map(entries.map((entry) => [entry.id, entry.reference]));
@@ -133,11 +138,17 @@ export default async function TransfersPage({
                       currentDir={sortDir}
                       search={search}
                     />
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {transfers.map((transfer) => {
                     const collaboration = collaborationById.get(transfer.collaboration_id);
+                    const isCounterparty = transfer.company_id !== me.company_id;
+                    const isPending = transfer.status === "pending";
+                    const walletsForApproval = wallets.filter(
+                      (wallet) => wallet.currency === collaboration?.currency && wallet.status === "active"
+                    );
                     return (
                       <TableRow key={transfer.id}>
                         <TableCell className="font-mono text-xs">
@@ -184,6 +195,18 @@ export default async function TransfersPage({
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {formatDate(transfer.created_at)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isPending && isCounterparty && (
+                            <div className="flex justify-end">
+                              <TransferDecisionButtons transferId={transfer.id} wallets={walletsForApproval} />
+                            </div>
+                          )}
+                          {isPending && !isCounterparty && (
+                            <div className="flex justify-end">
+                              <CancelTransferButton transferId={transfer.id} />
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
