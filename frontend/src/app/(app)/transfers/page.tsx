@@ -44,6 +44,7 @@ export default async function TransfersPage({
   ]);
   const transfers = transfersPage.items;
   const entryReferenceById = new Map(entries.map((entry) => [entry.id, entry.reference]));
+  const collaborationById = new Map(collaborations.map((collaboration) => [collaboration.id, collaboration]));
   const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
   const initialEntryId = rawParams.entry ?? null;
   const pendingCount = allTransfers.filter((transfer) => transfer.status === "pending").length;
@@ -117,7 +118,7 @@ export default async function TransfersPage({
                     <TableHead>Statut</TableHead>
                     <SortableHeader
                       column="amount"
-                      label="Montant"
+                      label="Montant converti"
                       currentSort={sortBy}
                       currentDir={sortDir}
                       search={search}
@@ -133,46 +134,58 @@ export default async function TransfersPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transfers.map((transfer) => (
-                    <TableRow key={transfer.id}>
-                      <TableCell className="font-mono text-xs">
-                        <Link href={`/transfers/${transfer.id}`} className="hover:underline">
-                          {transfer.reference}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {transfer.entry_id ? (
-                          <div className="flex flex-col gap-1">
-                            <Badge variant="outline" className="w-fit">
-                              Via entrée
+                  {transfers.map((transfer) => {
+                    const collaboration = collaborationById.get(transfer.collaboration_id);
+                    return (
+                      <TableRow key={transfer.id}>
+                        <TableCell className="font-mono text-xs">
+                          <Link href={`/transfers/${transfer.id}`} className="hover:underline">
+                            {transfer.reference}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {transfer.entry_id ? (
+                            <div className="flex flex-col gap-1">
+                              <Badge variant="outline" className="w-fit">
+                                Via entrée
+                              </Badge>
+                              <Link href={`/entries/${transfer.entry_id}`} className="font-medium text-foreground hover:underline">
+                                {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
+                              </Link>
+                            </div>
+                          ) : (
+                            <Badge variant="secondary" className="w-fit">
+                              Direct
                             </Badge>
-                            <Link href={`/entries/${transfer.entry_id}`} className="font-medium text-foreground hover:underline">
-                              {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
-                            </Link>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {transfer.beneficiary_name ?? transfer.beneficiary_phone}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {sendModeLabels[transfer.send_mode]}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={transfer.status} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <div className="flex flex-col items-end">
+                            <span className="font-medium">
+                              {formatMoney(transfer.converted_amount, collaboration?.currency ?? transfer.currency)}
+                            </span>
+                            {collaboration && collaboration.currency !== transfer.currency && (
+                              <span className="text-xs text-muted-foreground">
+                                {formatMoney(transfer.amount, transfer.currency)}
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <Badge variant="secondary" className="w-fit">
-                            Direct
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {transfer.beneficiary_name ?? transfer.beneficiary_phone}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {sendModeLabels[transfer.send_mode]}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={transfer.status} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatMoney(transfer.amount, transfer.currency)}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDate(transfer.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {formatDate(transfer.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

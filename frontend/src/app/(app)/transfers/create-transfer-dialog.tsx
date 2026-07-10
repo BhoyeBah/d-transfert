@@ -98,7 +98,8 @@ export function CreateTransferDialog({
         <DialogHeader>
           <DialogTitle>Créer un envoi international</DialogTitle>
           <DialogDescription>
-            Le taux collaboratif en vigueur sera figé sur cet envoi au moment de la création.
+            Le taux d&apos;envoi privé configuré pour cette devise sera utilisé pour convertir le
+            montant à payer par le collaborateur. Assurez-vous de l&apos;avoir configuré au préalable.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
