@@ -152,18 +152,22 @@ export function EntriesTable({
                       Voir
                     </Link>
                   </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/transfers?entry=${entry.id}`}>
-                      <ArrowLeftRight />
-                      Envoi
-                    </Link>
-                  </Button>
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/payments?entry=${entry.id}`}>
-                      <HandCoins />
-                      Paiement client
-                    </Link>
-                  </Button>
+                  {entry.status !== "consumed" && (
+                    <>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/transfers?entry=${entry.id}`}>
+                          <ArrowLeftRight />
+                          Envoi
+                        </Link>
+                      </Button>
+                      <Button asChild size="sm" variant="secondary">
+                        <Link href={`/payments?entry=${entry.id}`}>
+                          <HandCoins />
+                          Paiement client
+                        </Link>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

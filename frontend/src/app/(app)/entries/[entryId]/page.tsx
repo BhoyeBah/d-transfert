@@ -32,8 +32,7 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
     (candidate) =>
       candidate.id !== entry.id &&
       candidate.merged_into_id === null &&
-      candidate.status !== "cancelled" &&
-      candidate.status !== "rejected" &&
+      (candidate.status === "unallocated" || candidate.status === "partially_allocated") &&
       candidate.client_name?.trim().toLowerCase() === entry.client_name?.trim().toLowerCase() &&
       candidate.client_phone?.trim() === entry.client_phone?.trim()
   );
@@ -66,26 +65,32 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button asChild>
-            <Link href={`/transfers?entry=${entry.id}`}>
-              <ArrowLeftRight />
-              Transformer en envoi
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link href={`/payments?entry=${entry.id}`}>
-              <HandCoins />
-              Paiement client
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="#merge-same-client">
-              <Layers3 />
-              Fusionner avec même client
-            </Link>
-          </Button>
-        </div>
+        {entry.status === "consumed" ? (
+          <p className="text-sm text-muted-foreground">
+            Entrée entièrement consommée — archivée, aucune action possible.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button asChild>
+              <Link href={`/transfers?entry=${entry.id}`}>
+                <ArrowLeftRight />
+                Transformer en envoi
+              </Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href={`/payments?entry=${entry.id}`}>
+                <HandCoins />
+                Paiement client
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="#merge-same-client">
+                <Layers3 />
+                Fusionner avec même client
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -180,9 +185,11 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
         </CardContent>
       </Card>
 
-      <div id="merge-same-client">
-        <MergeSameClientEntriesCard entry={entry} candidates={sameClientEntries} />
-      </div>
+      {entry.status !== "consumed" && (
+        <div id="merge-same-client">
+          <MergeSameClientEntriesCard entry={entry} candidates={sameClientEntries} />
+        </div>
+      )}
     </div>
   );
 }
