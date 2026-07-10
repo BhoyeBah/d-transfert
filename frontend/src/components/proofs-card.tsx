@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { DownloadIcon, PaperclipIcon } from "lucide-react";
+import { EyeIcon, PaperclipIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { formatDate } from "@/lib/format";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -31,6 +32,7 @@ export function ProofsCard({
 }) {
   const [isPending, startTransition] = useTransition();
   const [list, setList] = useState(proofs);
+  const [previewProof, setPreviewProof] = useState<Proof | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function upload(formData: FormData) {
@@ -89,17 +91,39 @@ export function ProofsCard({
                     {proof.note ? ` · ${proof.note}` : ""}
                   </span>
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={`${fileHrefBase}/${proof.id}/file`} target="_blank" rel="noreferrer">
-                    <DownloadIcon />
-                    Ouvrir
-                  </a>
+                <Button variant="outline" size="sm" onClick={() => setPreviewProof(proof)}>
+                  <EyeIcon />
+                  Voir
                 </Button>
               </li>
             ))}
           </ul>
         )}
       </CardContent>
+
+      <Dialog open={previewProof !== null} onOpenChange={(open) => !open && setPreviewProof(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{previewProof?.file_name}</DialogTitle>
+          </DialogHeader>
+          {previewProof && (
+            previewProof.content_type === "application/pdf" ? (
+              <iframe
+                src={`${fileHrefBase}/${previewProof.id}/file`}
+                title={previewProof.file_name}
+                className="h-[75vh] w-full rounded-md border border-border"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`${fileHrefBase}/${previewProof.id}/file`}
+                alt={previewProof.file_name}
+                className="max-h-[75vh] w-full rounded-md border border-border object-contain"
+              />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
