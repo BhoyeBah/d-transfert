@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftRight, Clock, HandCoins, Wallet } from "lucide-react";
 
+import { ApiError } from "@/lib/api-error";
 import { listCollaborations } from "@/lib/data/collaborations";
 import { listEntries } from "@/lib/data/entries";
 import { getMe } from "@/lib/data/me";
@@ -33,6 +34,20 @@ import { CancelTransferButton, TransferDecisionButtons } from "./[transferId]/tr
 
 export const metadata: Metadata = { title: "Envois internationaux — D-Transfert" };
 
+// Cette page est accessible avec la permission transfer.create OU operation.validate, mais
+// collaborations/entrées/taux privés/wallets exigent chacun leur propre permission distincte
+// que tous les utilisateurs autorisés à voir cette page n'ont pas forcément — elles ne servent
+// qu'aux fonctionnalités de création/approbation, donc on dégrade en liste vide plutôt que de
+// faire planter la page entière.
+async function orEmptyOn403<T>(promise: Promise<T[]>): Promise<T[]> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 403) return [];
+    throw error;
+  }
+}
+
 export default async function TransfersPage({
   searchParams,
 }: {
@@ -43,10 +58,10 @@ export default async function TransfersPage({
   const [transfersPage, allTransfers, collaborations, entries, privateRates, wallets, me] = await Promise.all([
     listTransfersPage({ page, search, sortBy, sortDir }),
     listTransfers(),
-    listCollaborations(),
-    listEntries(),
-    listPrivateRates(),
-    listWallets(),
+    orEmptyOn403(listCollaborations()),
+    orEmptyOn403(listEntries()),
+    orEmptyOn403(listPrivateRates()),
+    orEmptyOn403(listWallets()),
     getMe(),
   ]);
   const transfers = transfersPage.items;

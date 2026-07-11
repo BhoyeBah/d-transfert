@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock, HandCoins, Wallet } from "lucide-react";
 
+import { ApiError } from "@/lib/api-error";
 import { listCollaborations } from "@/lib/data/collaborations";
 import { listClients } from "@/lib/data/clients";
 import { listEntries } from "@/lib/data/entries";
@@ -30,6 +31,20 @@ import { CreatePaymentDialog } from "./create-payment-dialog";
 
 export const metadata: Metadata = { title: "Paiements client — D-Transfert" };
 
+// Cette page est accessible avec la permission payment.create OU operation.validate, mais
+// collaborations/clients/entrées/wallets exigent chacun leur propre permission distincte que
+// tous les utilisateurs autorisés à voir cette page n'ont pas forcément — elles ne servent
+// qu'aux fonctionnalités de création/approbation, donc on dégrade en liste vide plutôt que de
+// faire planter la page entière.
+async function orEmptyOn403<T>(promise: Promise<T[]>): Promise<T[]> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 403) return [];
+    throw error;
+  }
+}
+
 export default async function PaymentsPage({
   searchParams,
 }: {
@@ -40,10 +55,10 @@ export default async function PaymentsPage({
   const [paymentsPage, allPayments, collaborations, clients, entries, wallets] = await Promise.all([
     listPaymentsPage({ page, search, sortBy, sortDir }),
     listPayments(),
-    listCollaborations(),
-    listClients(),
-    listEntries(),
-    listWallets(),
+    orEmptyOn403(listCollaborations()),
+    orEmptyOn403(listClients()),
+    orEmptyOn403(listEntries()),
+    orEmptyOn403(listWallets()),
   ]);
   const payments = paymentsPage.items;
   const clientById = new Map(clients.map((client) => [client.id, client]));
