@@ -321,12 +321,18 @@ export type PaymentStatusHistoryEntry = {
 
 // --- Clients ---
 
+export type ClientCurrencyBalance = {
+  currency: string;
+  balance: string;
+};
+
 export type Client = {
   id: string;
   name: string;
   phone: string;
   note: string | null;
   balance: string;
+  balances: ClientCurrencyBalance[];
   created_at: string;
 };
 
@@ -334,6 +340,7 @@ export type ClientBalanceMovement = {
   id: string;
   source_type: string;
   source_id: string;
+  currency: string;
   delta: string;
   balance_before: string;
   balance_after: string;

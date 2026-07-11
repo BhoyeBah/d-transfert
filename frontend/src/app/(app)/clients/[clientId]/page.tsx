@@ -44,13 +44,22 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Solde
             </span>
-            <p
-              className={`text-2xl font-semibold tabular-nums ${
-                Number(client.balance) > 0 ? "text-destructive" : ""
-              }`}
-            >
-              {formatMoney(client.balance)}
-            </p>
+            {client.balances.length === 0 ? (
+              <p className="text-2xl font-semibold tabular-nums">{formatMoney("0")}</p>
+            ) : (
+              <div className="flex flex-col items-end">
+                {client.balances.map((entry) => (
+                  <p
+                    key={entry.currency}
+                    className={`text-2xl font-semibold tabular-nums ${
+                      Number(entry.balance) > 0 ? "text-destructive" : ""
+                    }`}
+                  >
+                    {formatMoney(entry.balance, entry.currency)}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -58,8 +67,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label="Solde"
-          value={formatMoney(client.balance)}
-          tone={Number(client.balance) > 0 ? "destructive" : "success"}
+          value={
+            client.balances.length === 0 ? (
+              formatMoney("0")
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {client.balances.map((entry) => (
+                  <span key={entry.currency}>{formatMoney(entry.balance, entry.currency)}</span>
+                ))}
+              </div>
+            )
+          }
+          tone={client.balances.some((entry) => Number(entry.balance) > 0) ? "destructive" : "success"}
         />
         <StatTile label="Mouvements" value={movements.length} />
         <StatTile label="Entrées" value={positiveMovements} tone="destructive" />
@@ -79,7 +98,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                 <TableRow>
                   <TableHead>Source</TableHead>
                   <TableHead className="text-right">Variation</TableHead>
-                  <TableHead className="text-right">Solde après</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
@@ -96,9 +114,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                         Number(movement.delta) > 0 ? "text-destructive" : "text-success"
                       }`}
                     >
-                      {formatMoney(movement.delta)}
+                      {formatMoney(movement.delta, movement.currency)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(movement.balance_after)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {formatDate(movement.created_at)}
                     </TableCell>
