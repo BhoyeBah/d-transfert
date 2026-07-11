@@ -6,7 +6,7 @@ import { getMe } from "@/lib/data/me";
 import { getDashboard } from "@/lib/data/dashboard";
 import { NAV_ITEMS } from "@/lib/nav";
 import { hasPermission } from "@/lib/permissions";
-import { UnauthenticatedError } from "@/lib/api-error";
+import { ApiError, UnauthenticatedError } from "@/lib/api-error";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let me: Awaited<ReturnType<typeof getMe>>;
@@ -18,7 +18,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       getMe(),
       getCompanyMe().then((company) => company.name),
     ]);
-    unreadNotifications = (await getDashboard()).unread_notifications_count;
+    // Le compteur de notifications passe par le endpoint dashboard, qui exige la permission
+    // dashboard.view — celle-ci n'est pas garantie pour tous les utilisateurs pouvant se
+    // connecter (un employé peut n'avoir que transfer.create, par exemple). Comme ce layout
+    // enveloppe TOUTES les pages, une erreur ici ferait planter l'application entière : on
+    // dégrade simplement le compteur à 0 plutôt que de bloquer l'accès.
+    try {
+      unreadNotifications = (await getDashboard()).unread_notifications_count;
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 403)) throw error;
+    }
   } catch (error) {
     if (error instanceof UnauthenticatedError) {
       redirect("/login");
