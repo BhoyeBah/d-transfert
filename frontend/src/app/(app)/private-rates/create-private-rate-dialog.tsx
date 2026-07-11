@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { createPrivateRateAction } from "@/actions/collaborations";
+import { createPrivateRateAction } from "@/actions/private-rates";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
@@ -16,27 +16,20 @@ import {
 } from "@/components/ui/select";
 import { SEND_MODES, sendModeLabels } from "@/lib/validation/transfers";
 
-export function CreatePrivateRateDialog({
-  collaborationId,
-  defaultCurrency,
-}: {
-  collaborationId: string;
-  defaultCurrency: string;
-}) {
+export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: string }) {
   const [currency, setCurrency] = useState(defaultCurrency);
   const [operationType, setOperationType] = useState<string>("");
 
   return (
     <CreateEntityDialog
-      triggerLabel="Définir un taux privé"
+      triggerLabel="Définir un taux"
       title="Taux d'envoi privé"
-      description="Visible uniquement par votre entreprise — jamais par le collaborateur."
+      description="S'applique automatiquement à tous les collaborateurs pour cette devise. Visible uniquement par votre entreprise — jamais par vos collaborateurs. Vous pouvez le changer à tout moment en en définissant un nouveau."
       action={createPrivateRateAction}
-      successMessage="Taux privé enregistré."
+      successMessage="Taux enregistré."
     >
       {(state) => (
         <>
-          <input type="hidden" name="collaboration_id" value={collaborationId} />
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise</Label>
@@ -52,8 +45,8 @@ export function CreatePrivateRateDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="country">Pays (optionnel)</Label>
-              <Input id="country" name="country" />
+              <Label htmlFor="country">Pays (optionnel, pour vous repérer)</Label>
+              <Input id="country" name="country" placeholder="ex. Guinée" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="operation_type">Type d&apos;opération (optionnel)</Label>

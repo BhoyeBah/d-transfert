@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftRight, Clock, HandCoins, Wallet } from "lucide-react";
 
-import { listCollaborations, listPrivateRates } from "@/lib/data/collaborations";
+import { listCollaborations } from "@/lib/data/collaborations";
 import { listEntries } from "@/lib/data/entries";
 import { getMe } from "@/lib/data/me";
+import { listPrivateRates } from "@/lib/data/private-rates";
 import { listTransfers, listTransfersPage } from "@/lib/data/transfers";
 import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";

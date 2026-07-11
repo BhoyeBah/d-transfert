@@ -12,7 +12,8 @@ export type NavIconName =
   | "truck"
   | "file-clock"
   | "shield-check"
-  | "bell";
+  | "bell"
+  | "percent";
 
 export type NavItem = {
   href: string;
@@ -55,6 +56,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Collaborations",
     icon: "building",
     requiredPermission: PermissionCode.COLLABORATION_MANAGE,
+  },
+  {
+    href: "/private-rates",
+    label: "Taux d'envoi",
+    icon: "percent",
+    requiredPermission: PermissionCode.RATE_PRIVATE_VIEW,
   },
   { href: "/clients", label: "Clients", icon: "users", requiredPermission: PermissionCode.CLIENT_MANAGE },
   {

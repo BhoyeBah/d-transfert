@@ -10,6 +10,7 @@ import {
   HandCoins,
   LayoutDashboard,
   Landmark,
+  Percent,
   ScrollText,
   ShieldCheck,
   Truck,
@@ -34,6 +35,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   "file-clock": FileClock,
   "shield-check": ShieldCheck,
   bell: Bell,
+  percent: Percent,
 };
 
 export function SidebarNav({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
