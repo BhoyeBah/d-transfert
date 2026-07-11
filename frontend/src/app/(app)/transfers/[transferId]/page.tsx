@@ -64,9 +64,8 @@ export default async function TransferDetailPage({
     (wallet) => wallet.currency === collaboration.currency && wallet.status === "active"
   );
   const usedWallet = transfer.wallet_id ? wallets.find((wallet) => wallet.id === transfer.wallet_id) : undefined;
-  // Ne pas proposer de lien vers une entrée/client/wallet si l'utilisateur n'a pas la
-  // permission de les consulter — le clic mènerait systématiquement à une erreur de permission.
-  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
+  // Ne pas proposer de lien vers un client/wallet si l'utilisateur n'a pas la permission de
+  // les consulter — le clic mènerait systématiquement à une erreur de permission.
   const canViewClients = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.CLIENT_MANAGE);
   const canViewWallets = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.WALLET_MANAGE);
 
@@ -115,13 +114,9 @@ export default async function TransferDetailPage({
             {transfer.entry_id && (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Entrée source</span>
-                {canViewEntries ? (
-                  <Link href={`/entries/${transfer.entry_id}`} className="font-medium hover:underline">
-                    {transfer.entry_id.slice(0, 8)}
-                  </Link>
-                ) : (
-                  <span className="font-medium">{transfer.entry_id.slice(0, 8)}</span>
-                )}
+                <Link href={`/entries/${transfer.entry_id}`} className="font-medium hover:underline">
+                  {transfer.entry_id.slice(0, 8)}
+                </Link>
               </div>
             )}
             {transfer.client_id && (

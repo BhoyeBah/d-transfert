@@ -8,7 +8,6 @@ import { getMe } from "@/lib/data/me";
 import { getPayment, getPaymentStatusHistory } from "@/lib/data/payments";
 import { getWallet } from "@/lib/data/wallets";
 import { formatDate, formatMoney } from "@/lib/format";
-import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,9 +53,6 @@ export default async function PaymentDetailPage({
 
   const isCounterparty = payment.company_id !== me.company_id;
   const canDecide = payment.status === "pending" && isCounterparty;
-  // Ne pas proposer de lien vers une entrée si l'utilisateur n'a pas la permission de la
-  // consulter — le clic mènerait systématiquement à une erreur de permission.
-  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,13 +85,9 @@ export default async function PaymentDetailPage({
             {payment.entry_id && (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Entrée source</span>
-                {canViewEntries ? (
-                  <Link href={`/entries/${payment.entry_id}`} className="font-medium hover:underline">
-                    {payment.entry_id.slice(0, 8)}
-                  </Link>
-                ) : (
-                  <span className="font-medium">{payment.entry_id.slice(0, 8)}</span>
-                )}
+                <Link href={`/entries/${payment.entry_id}`} className="font-medium hover:underline">
+                  {payment.entry_id.slice(0, 8)}
+                </Link>
               </div>
             )}
             {wallet && (
