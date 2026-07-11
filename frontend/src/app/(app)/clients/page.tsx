@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRightIcon } from "lucide-react";
 
 import { listClientsPage } from "@/lib/data/clients";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { DataTableSearchForm } from "@/components/data-table/search-form";
@@ -61,6 +63,7 @@ export default async function ClientsPage({
                       search={search}
                       className="text-right"
                     />
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -72,12 +75,29 @@ export default async function ClientsPage({
                         </Link>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{client.phone}</TableCell>
-                      <TableCell
-                        className={`text-right font-medium tabular-nums ${
-                          Number(client.balance) > 0 ? "text-destructive" : ""
-                        }`}
-                      >
-                        {formatMoney(client.balance)}
+                      <TableCell className="text-right tabular-nums">
+                        {client.balances.length === 0 ? (
+                          <span className="text-muted-foreground">{formatMoney("0")}</span>
+                        ) : (
+                          <div className="flex flex-col items-end gap-0.5">
+                            {client.balances.map((entry) => (
+                              <span
+                                key={entry.currency}
+                                className={`font-medium ${Number(entry.balance) > 0 ? "text-destructive" : ""}`}
+                              >
+                                {formatMoney(entry.balance, entry.currency)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/clients/${client.id}`}>
+                            Voir
+                            <ArrowRightIcon />
+                          </Link>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
