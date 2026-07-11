@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { serverFetch } from "@/lib/api";
 import { ApiError } from "@/lib/api-error";
 import type { ActionState } from "@/lib/action-state";
+import type { MutationResult } from "@/lib/mutation-result";
 import { createPrivateRateSchema } from "@/lib/validation/private-rates";
 
 export async function createPrivateRateAction(
@@ -43,4 +44,22 @@ export async function createPrivateRateAction(
   revalidatePath("/private-rates");
   revalidatePath("/collaborations");
   return { status: "success" };
+}
+
+export async function updatePrivateRateStatusAction(
+  rateId: string,
+  isActive: boolean
+): Promise<MutationResult> {
+  try {
+    await serverFetch(`/api/v1/private-rates/${rateId}/status`, {
+      method: "PATCH",
+      body: { is_active: isActive },
+    });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath("/private-rates");
+  revalidatePath("/collaborations");
+  return { ok: true, data: undefined };
 }
