@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
+import { ApiError } from "@/lib/api-error";
 import { getClient } from "@/lib/data/clients";
 import { getMe } from "@/lib/data/me";
 import { getPayment, getPaymentStatusHistory } from "@/lib/data/payments";
 import { getWallet } from "@/lib/data/wallets";
 import { formatDate, formatMoney } from "@/lib/format";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,18 @@ import { PaymentDecisionButtons } from "./payment-decision-buttons";
 
 export const metadata: Metadata = { title: "Détail paiement client — D-Transfert" };
 
+// wallet.manage/client.manage ne sont pas garantis pour tous les utilisateurs pouvant voir un
+// paiement (payment.create / operation.validate) — on dégrade en absence de détail plutôt que
+// de faire planter la page.
+async function orNullOn403<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 403) return null;
+    throw error;
+  }
+}
+
 export default async function PaymentDetailPage({
   params,
 }: {
@@ -34,12 +48,15 @@ export default async function PaymentDetailPage({
     getMe(),
   ]);
   const [wallet, client] = await Promise.all([
-    payment.wallet_id ? getWallet(payment.wallet_id) : Promise.resolve(null),
-    payment.client_id ? getClient(payment.client_id) : Promise.resolve(null),
+    payment.wallet_id ? orNullOn403(getWallet(payment.wallet_id)) : Promise.resolve(null),
+    payment.client_id ? orNullOn403(getClient(payment.client_id)) : Promise.resolve(null),
   ]);
 
   const isCounterparty = payment.company_id !== me.company_id;
   const canDecide = payment.status === "pending" && isCounterparty;
+  // Ne pas proposer de lien vers une entrée si l'utilisateur n'a pas la permission de la
+  // consulter — le clic mènerait systématiquement à une erreur de permission.
+  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,9 +89,13 @@ export default async function PaymentDetailPage({
             {payment.entry_id && (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Entrée source</span>
-                <Link href={`/entries/${payment.entry_id}`} className="font-medium hover:underline">
-                  {payment.entry_id.slice(0, 8)}
-                </Link>
+                {canViewEntries ? (
+                  <Link href={`/entries/${payment.entry_id}`} className="font-medium hover:underline">
+                    {payment.entry_id.slice(0, 8)}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{payment.entry_id.slice(0, 8)}</span>
+                )}
               </div>
             )}
             {wallet && (

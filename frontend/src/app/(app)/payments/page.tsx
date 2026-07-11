@@ -6,10 +6,12 @@ import { ApiError } from "@/lib/api-error";
 import { listCollaborations } from "@/lib/data/collaborations";
 import { listClients } from "@/lib/data/clients";
 import { listEntries } from "@/lib/data/entries";
+import { getMe } from "@/lib/data/me";
 import { listPayments, listPaymentsPage } from "@/lib/data/payments";
 import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate, formatMoney } from "@/lib/format";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -52,13 +54,14 @@ export default async function PaymentsPage({
 }) {
   const rawParams = await searchParams;
   const { page, search, sortBy, sortDir } = parseDataTableParams(rawParams);
-  const [paymentsPage, allPayments, collaborations, clients, entries, wallets] = await Promise.all([
+  const [paymentsPage, allPayments, collaborations, clients, entries, wallets, me] = await Promise.all([
     listPaymentsPage({ page, search, sortBy, sortDir }),
     listPayments(),
     orEmptyOn403(listCollaborations()),
     orEmptyOn403(listClients()),
     orEmptyOn403(listEntries()),
     orEmptyOn403(listWallets()),
+    getMe(),
   ]);
   const payments = paymentsPage.items;
   const clientById = new Map(clients.map((client) => [client.id, client]));
@@ -69,6 +72,10 @@ export default async function PaymentsPage({
   const pendingCount = allPayments.filter((payment) => payment.status === "pending").length;
   const withEntryCount = allPayments.filter((payment) => payment.entry_id !== null).length;
   const directCount = allPayments.filter((payment) => payment.wallet_id !== null).length;
+  // Ne pas proposer un lien vers une entrée/wallet si l'utilisateur n'a pas la permission de
+  // le consulter — le clic mènerait systématiquement à une erreur de permission.
+  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
+  const canViewWallets = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.WALLET_MANAGE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -156,18 +163,36 @@ export default async function PaymentsPage({
                             <Badge variant="outline" className="w-fit">
                               Via entrée
                             </Badge>
-                            <Link href={`/entries/${payment.entry_id}`} className="font-medium text-foreground hover:underline">
-                              {entryReferenceById.get(payment.entry_id) ?? payment.entry_id.slice(0, 8)}
-                            </Link>
+                            {canViewEntries ? (
+                              <Link
+                                href={`/entries/${payment.entry_id}`}
+                                className="font-medium text-foreground hover:underline"
+                              >
+                                {entryReferenceById.get(payment.entry_id) ?? payment.entry_id.slice(0, 8)}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-foreground">
+                                {entryReferenceById.get(payment.entry_id) ?? payment.entry_id.slice(0, 8)}
+                              </span>
+                            )}
                           </div>
                         ) : payment.wallet_id ? (
                           <div className="flex flex-col gap-1">
                             <Badge variant="secondary" className="w-fit">
                               Wallet
                             </Badge>
-                            <Link href={`/wallets/${payment.wallet_id}`} className="font-medium text-foreground hover:underline">
-                              {walletNameById.get(payment.wallet_id) ?? payment.wallet_id.slice(0, 8)}
-                            </Link>
+                            {canViewWallets ? (
+                              <Link
+                                href={`/wallets/${payment.wallet_id}`}
+                                className="font-medium text-foreground hover:underline"
+                              >
+                                {walletNameById.get(payment.wallet_id) ?? payment.wallet_id.slice(0, 8)}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-foreground">
+                                {walletNameById.get(payment.wallet_id) ?? payment.wallet_id.slice(0, 8)}
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <Badge variant="secondary" className="w-fit">

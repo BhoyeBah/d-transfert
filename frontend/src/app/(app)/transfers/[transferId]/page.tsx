@@ -3,11 +3,13 @@ import Link from "next/link";
 import { ArrowLeftIcon, ClockIcon } from "lucide-react";
 
 import { uploadTransferProofAction } from "@/actions/transfers";
+import { ApiError } from "@/lib/api-error";
 import { getCollaboration } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { getTransfer, getTransferStatusHistory, listTransferProofs } from "@/lib/data/transfers";
 import { listWallets } from "@/lib/data/wallets";
 import { formatDate } from "@/lib/format";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { AmountDisplay } from "@/components/amount-display";
 import { EmptyState } from "@/components/empty-state";
@@ -26,6 +28,18 @@ import { CancelTransferButton, TransferDecisionButtons } from "./transfer-decisi
 
 export const metadata: Metadata = { title: "Détail envoi — D-Transfert" };
 
+// wallet.manage n'est pas garanti pour tous les utilisateurs pouvant voir un envoi
+// (transfer.create / operation.validate) — le wallet ne sert qu'à l'approbation, donc on
+// dégrade en liste vide plutôt que de faire planter la page.
+async function orEmptyOn403<T>(promise: Promise<T[]>): Promise<T[]> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 403) return [];
+    throw error;
+  }
+}
+
 export default async function TransferDetailPage({
   params,
 }: {
@@ -37,7 +51,7 @@ export default async function TransferDetailPage({
     getTransferStatusHistory(transferId),
     listTransferProofs(transferId),
     getMe(),
-    listWallets(),
+    orEmptyOn403(listWallets()),
   ]);
   const collaboration = await getCollaboration(transfer.collaboration_id);
 
@@ -50,6 +64,11 @@ export default async function TransferDetailPage({
     (wallet) => wallet.currency === collaboration.currency && wallet.status === "active"
   );
   const usedWallet = transfer.wallet_id ? wallets.find((wallet) => wallet.id === transfer.wallet_id) : undefined;
+  // Ne pas proposer de lien vers une entrée/client/wallet si l'utilisateur n'a pas la
+  // permission de les consulter — le clic mènerait systématiquement à une erreur de permission.
+  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
+  const canViewClients = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.CLIENT_MANAGE);
+  const canViewWallets = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.WALLET_MANAGE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,17 +115,25 @@ export default async function TransferDetailPage({
             {transfer.entry_id && (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Entrée source</span>
-                <Link href={`/entries/${transfer.entry_id}`} className="font-medium hover:underline">
-                  {transfer.entry_id.slice(0, 8)}
-                </Link>
+                {canViewEntries ? (
+                  <Link href={`/entries/${transfer.entry_id}`} className="font-medium hover:underline">
+                    {transfer.entry_id.slice(0, 8)}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{transfer.entry_id.slice(0, 8)}</span>
+                )}
               </div>
             )}
             {transfer.client_id && (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Client</span>
-                <Link href={`/clients/${transfer.client_id}`} className="font-medium hover:underline">
-                  {transfer.client_id.slice(0, 8)}
-                </Link>
+                {canViewClients ? (
+                  <Link href={`/clients/${transfer.client_id}`} className="font-medium hover:underline">
+                    {transfer.client_id.slice(0, 8)}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{transfer.client_id.slice(0, 8)}</span>
+                )}
               </div>
             )}
             <div className="flex justify-between">
@@ -138,9 +165,13 @@ export default async function TransferDetailPage({
             {usedWallet && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Wallet utilisé</span>
-                <Link href={`/wallets/${usedWallet.id}`} className="font-medium hover:underline">
-                  {usedWallet.name}
-                </Link>
+                {canViewWallets ? (
+                  <Link href={`/wallets/${usedWallet.id}`} className="font-medium hover:underline">
+                    {usedWallet.name}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{usedWallet.name}</span>
+                )}
               </div>
             )}
             {transfer.client_debt_amount && (
