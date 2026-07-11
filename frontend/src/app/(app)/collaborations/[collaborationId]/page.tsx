@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 
-import {
-  getCollaboration,
-  getCollaboratorBalance,
-  getRateHistory,
-  listPrivateRates,
-} from "@/lib/data/collaborations";
+import { getCollaboration, getCollaboratorBalance, getRateHistory } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
+import { listPrivateRates } from "@/lib/data/private-rates";
 import { formatDate, formatMoney } from "@/lib/format";
+import { sendModeLabels } from "@/lib/validation/transfers";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -26,7 +24,6 @@ import {
   ProposeRateDialog,
   RateProposalDecisionButtons,
 } from "./collaboration-actions";
-import { CreatePrivateRateDialog } from "./create-private-rate-dialog";
 
 export const metadata: Metadata = { title: "Détail collaboration — D-Transfert" };
 
@@ -43,9 +40,18 @@ export default async function CollaborationDetailPage({
   ]);
 
   const balance = collaboration.status === "accepted" ? await getCollaboratorBalance(collaborationId) : null;
-  const privateRates =
+  // Le taux d'envoi privé n'est pas propre à cette collaboration : c'est un réglage par
+  // devise, géré depuis la page "Taux d'envoi", qui s'applique automatiquement à tous les
+  // collaborateurs utilisant cette devise. On affiche ici, pour information, les taux actifs
+  // qui s'appliquent effectivement à cette collaboration.
+  const applicableRates =
     collaboration.status === "accepted"
-      ? (await listPrivateRates()).filter((rate) => rate.collaboration_id === collaborationId)
+      ? (await listPrivateRates()).filter(
+          (rate) =>
+            rate.is_active &&
+            rate.currency === collaboration.currency &&
+            (rate.collaboration_id === null || rate.collaboration_id === collaborationId)
+        )
       : [];
 
   const isTarget = collaboration.target_company_id === me.company_id;
@@ -212,32 +218,45 @@ export default async function CollaborationDetailPage({
 
       {collaboration.status === "accepted" && (
         <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Taux d&apos;envoi privé pour cette collaboration</CardTitle>
-            <CreatePrivateRateDialog collaborationId={collaboration.id} defaultCurrency={collaboration.currency} />
+          <CardHeader>
+            <CardTitle>Taux d&apos;envoi privé applicable</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Réglé par devise depuis la page Taux d&apos;envoi — s&apos;applique automatiquement à tous
+              les collaborateurs en {collaboration.currency}.
+            </p>
+            <CardAction>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/private-rates">
+                  Gérer les taux d&apos;envoi
+                  <ArrowRightIcon />
+                </Link>
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            {privateRates.length === 0 ? (
-              <EmptyState message="Aucun taux privé défini pour cette collaboration." />
+            {applicableRates.length === 0 ? (
+              <EmptyState
+                message={`Aucun taux d'envoi actif en ${collaboration.currency}. Les envois dans cette devise seront bloqués tant qu'un taux n'est pas défini.`}
+              />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Devise</TableHead>
                     <TableHead>Pays</TableHead>
+                    <TableHead>Type d&apos;opération</TableHead>
                     <TableHead className="text-right">Taux</TableHead>
-                    <TableHead>Statut</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {privateRates.map((rate) => (
+                  {applicableRates.map((rate) => (
                     <TableRow key={rate.id}>
                       <TableCell>{rate.currency}</TableCell>
                       <TableCell>{rate.country ?? "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{rate.rate}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={rate.is_active ? "active" : "inactive"} />
+                      <TableCell className="text-sm text-muted-foreground">
+                        {rate.operation_type ? sendModeLabels[rate.operation_type] : "Tous"}
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">{rate.rate}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

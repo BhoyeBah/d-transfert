@@ -2,13 +2,7 @@ import "server-only";
 
 import { serverFetch } from "@/lib/api";
 import { buildPageQuery, type DataTableParams } from "@/lib/data-table";
-import type {
-  Collaboration,
-  CollaborationRateHistoryEntry,
-  CollaboratorBalance,
-  Page,
-  PrivateRate,
-} from "@/types/api";
+import type { Collaboration, CollaborationRateHistoryEntry, CollaboratorBalance, Page } from "@/types/api";
 
 export async function listCollaborations(): Promise<Collaboration[]> {
   return serverFetch<Collaboration[]>("/api/v1/collaborations");
@@ -34,8 +28,4 @@ export async function getRateHistory(collaborationId: string): Promise<Collabora
 
 export async function getCollaboratorBalance(collaborationId: string): Promise<CollaboratorBalance> {
   return serverFetch<CollaboratorBalance>(`/api/v1/collaborations/${collaborationId}/balance`);
-}
-
-export async function listPrivateRates(): Promise<PrivateRate[]> {
-  return serverFetch<PrivateRate[]>("/api/v1/private-rates");
 }
