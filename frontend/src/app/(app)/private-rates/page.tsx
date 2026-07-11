@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreatePrivateRateDialog } from "./create-private-rate-dialog";
+import { RateStatusButton } from "./rate-status-button";
 
 export const metadata: Metadata = { title: "Taux d'envoi — D-Transfert" };
 
@@ -56,6 +57,7 @@ export default async function PrivateRatesPage() {
                 <TableHead className="text-right">Taux</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -82,6 +84,9 @@ export default async function PrivateRatesPage() {
                       <StatusBadge status={rate.is_active ? "active" : "inactive"} />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{formatDate(rate.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <RateStatusButton rateId={rate.id} isActive={rate.is_active} />
+                    </TableCell>
                   </TableRow>
                 );
               })}
