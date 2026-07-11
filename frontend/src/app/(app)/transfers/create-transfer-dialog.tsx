@@ -17,7 +17,6 @@ import {
 import { formatMoney } from "@/lib/format";
 import type { Collaboration, Entry, PrivateRate } from "@/types/api";
 import { Button } from "@/components/ui/button";
-import { CurrencySelect } from "@/components/currency-select";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +82,10 @@ export function CreateTransferDialog({
   const amount = useWatch({ control, name: "amount" });
   const sendMode = useWatch({ control, name: "send_mode" }) ?? "cash";
   const entryId = useWatch({ control, name: "entry_id" });
-  const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
+  const selectedCollaboration = useMemo(
+    () => collaborations.find((c) => c.id === collaborationId),
+    [collaborations, collaborationId]
+  );
   const eligibleEntries = entries.filter(
     (entry) =>
       !entry.merged_into_id &&
@@ -91,6 +93,7 @@ export function CreateTransferDialog({
   );
   const initialEntry = initialEntryId ? entries.find((entry) => entry.id === initialEntryId) : undefined;
   const selectedEntry = entryId ? eligibleEntries.find((entry) => entry.id === entryId) : undefined;
+  const entryCurrencies = selectedEntry ? Object.keys(selectedEntry.available_by_currency) : [];
   const availableForCurrency =
     selectedEntry && currency ? Number(selectedEntry.available_by_currency[currency] ?? 0) : null;
   const exceedsAvailable = Boolean(
@@ -113,11 +116,22 @@ export function CreateTransferDialog({
     }
   }, [initialEntry, initialEntryId, setValue]);
 
+  // La devise n'est jamais choisie librement : sans entrée, elle est verrouillée sur celle de
+  // la collaboration ; avec une entrée, elle est dérivée des devises réellement disponibles
+  // sur cette entrée (le taux d'envoi privé la convertira vers celle de la collaboration si
+  // elles diffèrent). Une saisie libre exposait à choisir une devise incohérente par erreur.
   useEffect(() => {
-    if (selectedCollaboration) {
-      setValue("currency", selectedCollaboration.currency);
+    if (!selectedEntry) {
+      setValue("currency", selectedCollaboration?.currency ?? "");
+      return;
     }
-  }, [selectedCollaboration, setValue]);
+    const currencies = Object.keys(selectedEntry.available_by_currency);
+    if (currencies.length === 1) {
+      setValue("currency", currencies[0]);
+    } else if (!currencies.includes(currency ?? "")) {
+      setValue("currency", "");
+    }
+  }, [selectedEntry, selectedCollaboration, currency, setValue]);
 
   const matchedRate = useMemo(() => {
     if (!collaborationId || !currency) return undefined;
@@ -213,12 +227,23 @@ export function CreateTransferDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise</Label>
-              <CurrencySelect
-                id="currency"
-                name="currency"
-                value={currency ?? ""}
-                onValueChange={(value) => setValue("currency", value)}
-              />
+              {selectedEntry && entryCurrencies.length > 1 ? (
+                <select
+                  id="currency"
+                  value={currency ?? ""}
+                  onChange={(e) => setValue("currency", e.target.value)}
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                >
+                  <option value="">Choisir…</option>
+                  {entryCurrencies.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input id="currency" value={currency ?? ""} disabled readOnly />
+              )}
               {errors.currency && <p className="text-sm text-destructive">{errors.currency.message}</p>}
             </div>
           </div>

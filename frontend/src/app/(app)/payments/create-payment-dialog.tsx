@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ export function CreatePaymentDialog({
   const [open, setOpen] = useState(initialOpen || Boolean(initialEntryId));
   const [source, setSource] = useState<Source>(initialEntryId ? "entry" : "none");
   const {
+    control,
     register,
     handleSubmit,
     setValue,
@@ -46,10 +47,19 @@ export function CreatePaymentDialog({
     formState: { errors, isSubmitting },
   } = useForm<CreatePaymentFormValues>({ resolver: zodResolver(createPaymentSchema) });
 
+  const collaborationId = useWatch({ control, name: "collaboration_id" });
+  const entryId = useWatch({ control, name: "entry_id" });
+  const walletId = useWatch({ control, name: "wallet_id" });
+  const currency = useWatch({ control, name: "currency" });
+
   const eligibleEntries = entries.filter(
     (entry) => !entry.merged_into_id && Object.keys(entry.available_by_currency).length > 0
   );
   const initialEntry = initialEntryId ? entries.find((entry) => entry.id === initialEntryId) : undefined;
+  const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
+  const selectedEntry = entryId ? eligibleEntries.find((entry) => entry.id === entryId) : undefined;
+  const selectedWallet = walletId ? wallets.find((wallet) => wallet.id === walletId) : undefined;
+  const entryCurrencies = selectedEntry ? Object.keys(selectedEntry.available_by_currency) : [];
 
   useEffect(() => {
     if (!initialEntryId) return;
@@ -61,6 +71,31 @@ export function CreatePaymentDialog({
       setValue("client_phone", initialEntry.client_phone);
     }
   }, [initialEntry, initialEntryId, setValue]);
+
+  // La devise n'est jamais saisie librement : elle est dérivée du contexte — celle du wallet
+  // choisi, celle(s) réellement disponible(s) sur l'entrée choisie, ou par défaut celle de la
+  // collaboration. Une saisie libre (l'ancien champ texte) exposait à taper une devise
+  // incohérente par erreur, convertie sans avertissement via le taux collaboratif.
+  useEffect(() => {
+    if (source === "wallet") {
+      setValue("currency", selectedWallet?.currency ?? "");
+      return;
+    }
+    if (source === "entry") {
+      if (!selectedEntry) {
+        setValue("currency", "");
+        return;
+      }
+      const currencies = Object.keys(selectedEntry.available_by_currency);
+      if (currencies.length === 1) {
+        setValue("currency", currencies[0]);
+      } else if (!currencies.includes(currency ?? "")) {
+        setValue("currency", "");
+      }
+      return;
+    }
+    setValue("currency", selectedCollaboration?.currency ?? "");
+  }, [source, selectedWallet, selectedEntry, selectedCollaboration, currency, setValue]);
 
   function changeSource(next: Source) {
     setSource(next);
@@ -180,11 +215,23 @@ export function CreatePaymentDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise</Label>
-              <Input
-                id="currency"
-                {...register("currency")}
-                onChange={(e) => setValue("currency", e.target.value.toUpperCase())}
-              />
+              {source === "entry" && entryCurrencies.length > 1 ? (
+                <select
+                  id="currency"
+                  value={currency ?? ""}
+                  onChange={(e) => setValue("currency", e.target.value)}
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                >
+                  <option value="">Choisir…</option>
+                  {entryCurrencies.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input id="currency" value={currency ?? ""} disabled readOnly />
+              )}
               {errors.currency && <p className="text-sm text-destructive">{errors.currency.message}</p>}
             </div>
           </div>
