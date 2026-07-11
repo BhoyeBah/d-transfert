@@ -11,6 +11,7 @@ import { listTransfers, listTransfersPage } from "@/lib/data/transfers";
 import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate, formatMoney } from "@/lib/format";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -72,6 +73,12 @@ export default async function TransfersPage({
   const pendingCount = allTransfers.filter((transfer) => transfer.status === "pending").length;
   const withEntryCount = allTransfers.filter((transfer) => transfer.entry_id !== null).length;
   const clientDebtCount = allTransfers.filter((transfer) => transfer.client_debt_amount !== null).length;
+  const canViewPrivateRates = hasPermission(
+    me.permissions,
+    me.is_owner,
+    me.is_super_admin,
+    PermissionCode.RATE_PRIVATE_VIEW
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,6 +90,7 @@ export default async function TransfersPage({
             collaborations={acceptedCollaborations}
             entries={entries}
             privateRates={privateRates}
+            canViewPrivateRates={canViewPrivateRates}
             initialEntryId={initialEntryId}
             initialOpen={Boolean(initialEntryId)}
           />

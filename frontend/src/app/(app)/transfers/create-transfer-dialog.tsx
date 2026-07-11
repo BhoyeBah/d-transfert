@@ -54,12 +54,14 @@ export function CreateTransferDialog({
   collaborations,
   entries,
   privateRates,
+  canViewPrivateRates,
   initialEntryId,
   initialOpen = false,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
   privateRates: PrivateRate[];
+  canViewPrivateRates: boolean;
   initialEntryId?: string | null;
   initialOpen?: boolean;
 }) {
@@ -145,13 +147,15 @@ export function CreateTransferDialog({
     if (currency === selectedCollaboration.currency) {
       return { amount, currency: selectedCollaboration.currency, rate: null as string | null };
     }
-    if (!matchedRate) return "missing_rate" as const;
+    if (!matchedRate) {
+      return canViewPrivateRates ? ("missing_rate" as const) : ("automatic_rate" as const);
+    }
     return {
       amount: amount * Number(matchedRate.rate),
       currency: selectedCollaboration.currency,
       rate: matchedRate.rate,
     };
-  }, [amount, currency, selectedCollaboration, matchedRate]);
+  }, [amount, currency, selectedCollaboration, matchedRate, canViewPrivateRates]);
 
   async function onSubmit(values: CreateTransferFormValues) {
     const result = await createTransferAction(values);
@@ -176,8 +180,8 @@ export function CreateTransferDialog({
         <DialogHeader>
           <DialogTitle>Créer un envoi international</DialogTitle>
           <DialogDescription>
-            Le taux d&apos;envoi privé configuré pour cette devise sera utilisé pour convertir le
-            montant à payer par le collaborateur. Assurez-vous de l&apos;avoir configuré au préalable.
+            Le taux d&apos;envoi privé configuré par votre entreprise sera appliqué automatiquement
+            lors de la création.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -256,7 +260,12 @@ export function CreateTransferDialog({
                   : "border-dashed border-input text-muted-foreground"
               }`}
             >
-              {conversionPreview === "missing_rate" ? (
+              {conversionPreview === "automatic_rate" ? (
+                <p>
+                  La conversion sera calculée automatiquement avec le taux d&apos;envoi privé actif.
+                  Sa valeur est masquée selon vos permissions.
+                </p>
+              ) : conversionPreview === "missing_rate" ? (
                 <p>
                   Aucun taux d&apos;envoi privé configuré pour la devise source {currency}.{" "}
                   <Link href="/private-rates" target="_blank" className="underline">
