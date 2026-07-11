@@ -11,6 +11,7 @@ import { listTransfers, listTransfersPage } from "@/lib/data/transfers";
 import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate, formatMoney } from "@/lib/format";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -72,6 +73,9 @@ export default async function TransfersPage({
   const pendingCount = allTransfers.filter((transfer) => transfer.status === "pending").length;
   const withEntryCount = allTransfers.filter((transfer) => transfer.entry_id !== null).length;
   const clientDebtCount = allTransfers.filter((transfer) => transfer.client_debt_amount !== null).length;
+  // Ne pas proposer un lien vers une entrée si l'utilisateur n'a pas la permission de la
+  // consulter — le clic mènerait systématiquement à une erreur de permission.
+  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -178,9 +182,18 @@ export default async function TransfersPage({
                               <Badge variant="outline" className="w-fit">
                                 Via entrée
                               </Badge>
-                              <Link href={`/entries/${transfer.entry_id}`} className="font-medium text-foreground hover:underline">
-                                {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
-                              </Link>
+                              {canViewEntries ? (
+                                <Link
+                                  href={`/entries/${transfer.entry_id}`}
+                                  className="font-medium text-foreground hover:underline"
+                                >
+                                  {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
+                                </Link>
+                              ) : (
+                                <span className="font-medium text-foreground">
+                                  {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
+                                </span>
+                              )}
                             </div>
                           ) : (
                             <Badge variant="secondary" className="w-fit">
