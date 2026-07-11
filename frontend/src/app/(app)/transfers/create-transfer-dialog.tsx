@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
@@ -232,8 +233,11 @@ export function CreateTransferDialog({
             >
               {conversionPreview === "missing_rate" ? (
                 <p>
-                  Aucun taux d&apos;envoi privé configuré pour {currency}. Configurez-le depuis la page de
-                  la collaboration avant de créer cet envoi.
+                  Aucun taux d&apos;envoi privé configuré pour la devise source {currency}.{" "}
+                  <Link href="/private-rates" target="_blank" className="underline">
+                    Configurez-le depuis la page Taux d&apos;envoi
+                  </Link>{" "}
+                  avant de créer cet envoi.
                 </p>
               ) : (
                 <p>
