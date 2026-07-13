@@ -40,17 +40,17 @@ export default async function CollaborationDetailPage({
   ]);
 
   const balance = collaboration.status === "accepted" ? await getCollaboratorBalance(collaborationId) : null;
-  // Le taux d'envoi privé n'est pas propre à cette collaboration : c'est un réglage par
-  // devise, géré depuis la page "Taux d'envoi", qui s'applique automatiquement à tous les
-  // collaborateurs utilisant cette devise. On affiche ici, pour information, les taux actifs
-  // qui s'appliquent effectivement à cette collaboration.
+  // Le taux d'envoi privé n'est pas propre à cette collaboration : c'est un réglage par devise
+  // SOURCE (celle de l'envoi, pas celle de la collaboration), géré depuis la page "Taux
+  // d'envoi", qui s'applique automatiquement à tous les collaborateurs utilisant cette
+  // collaboration. Un envoi déjà dans la devise de la collaboration ne nécessite aucun taux
+  // (passthrough direct) — ce sont les envois dans une AUTRE devise (ex. une entrée en XOF vers
+  // une collaboration en GNF) qui en ont besoin. On affiche donc ici tous les taux actifs
+  // applicables à cette collaboration, quelle que soit leur devise.
   const applicableRates =
     collaboration.status === "accepted"
       ? (await listPrivateRates()).filter(
-          (rate) =>
-            rate.is_active &&
-            rate.currency === collaboration.currency &&
-            (rate.collaboration_id === null || rate.collaboration_id === collaborationId)
+          (rate) => rate.is_active && (rate.collaboration_id === null || rate.collaboration_id === collaborationId)
         )
       : [];
 
@@ -221,8 +221,7 @@ export default async function CollaborationDetailPage({
           <CardHeader>
             <CardTitle>Taux d&apos;envoi privé applicable</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Réglé par devise depuis la page Taux d&apos;envoi — s&apos;applique automatiquement à tous
-              les collaborateurs en {collaboration.currency}.
+              {`Réglé par devise SOURCE depuis la page Taux d'envoi. Un envoi déjà en ${collaboration.currency} n'en a pas besoin — seuls les envois dans une autre devise (ex. via une entrée dans une devise différente) exigent un taux pour cette devise.`}
             </p>
             <CardAction>
               <Button asChild size="sm" variant="outline">
@@ -236,7 +235,7 @@ export default async function CollaborationDetailPage({
           <CardContent>
             {applicableRates.length === 0 ? (
               <EmptyState
-                message={`Aucun taux d'envoi actif en ${collaboration.currency}. Les envois dans cette devise seront bloqués tant qu'un taux n'est pas défini.`}
+                message={`Aucun taux d'envoi actif pour cette collaboration. Un envoi dans une devise différente de ${collaboration.currency} sera bloqué tant qu'un taux n'est pas défini pour cette devise source.`}
               />
             ) : (
               <Table>

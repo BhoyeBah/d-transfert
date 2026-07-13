@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftIcon, ArrowLeftRight, HandCoins, Layers3 } from "lucide-react";
 
+import { ApiError } from "@/lib/api-error";
 import { getEntry, listEntries } from "@/lib/data/entries";
 import { listWallets } from "@/lib/data/wallets";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -24,9 +25,26 @@ export const metadata: Metadata = { title: "Détail entrée — D-Transfert" };
 
 const CANCELLABLE_STATUSES = new Set(["unallocated"]);
 
+// wallet.manage n'est pas garanti pour tous les utilisateurs pouvant voir une entrée
+// (transfer.create / payment.create / operation.validate) — le nom du wallet n'est qu'un
+// affichage optionnel (déjà dégradé en identifiant brut ci-dessous), donc on dégrade en liste
+// vide plutôt que de faire planter la page.
+async function orEmptyOn403<T>(promise: Promise<T[]>): Promise<T[]> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 403) return [];
+    throw error;
+  }
+}
+
 export default async function EntryDetailPage({ params }: { params: Promise<{ entryId: string }> }) {
   const { entryId } = await params;
-  const [entry, allEntries, wallets] = await Promise.all([getEntry(entryId), listEntries(), listWallets()]);
+  const [entry, allEntries, wallets] = await Promise.all([
+    getEntry(entryId),
+    listEntries(),
+    orEmptyOn403(listWallets()),
+  ]);
   const walletNameById = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
   const sameClientEntries = allEntries.filter(
     (candidate) =>

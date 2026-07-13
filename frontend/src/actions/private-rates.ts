@@ -43,6 +43,8 @@ export async function createPrivateRateAction(
 
   revalidatePath("/private-rates");
   revalidatePath("/collaborations");
+  revalidatePath("/collaborations/[collaborationId]", "page");
+  revalidatePath("/transfers");
   return { status: "success" };
 }
 
@@ -61,5 +63,7 @@ export async function updatePrivateRateStatusAction(
   }
   revalidatePath("/private-rates");
   revalidatePath("/collaborations");
+  revalidatePath("/collaborations/[collaborationId]", "page");
+  revalidatePath("/transfers");
   return { ok: true, data: undefined };
 }

@@ -73,9 +73,12 @@ export default async function TransfersPage({
   const pendingCount = allTransfers.filter((transfer) => transfer.status === "pending").length;
   const withEntryCount = allTransfers.filter((transfer) => transfer.entry_id !== null).length;
   const clientDebtCount = allTransfers.filter((transfer) => transfer.client_debt_amount !== null).length;
-  // Ne pas proposer un lien vers une entrée si l'utilisateur n'a pas la permission de la
-  // consulter — le clic mènerait systématiquement à une erreur de permission.
-  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
+  const canViewPrivateRates = hasPermission(
+    me.permissions,
+    me.is_owner,
+    me.is_super_admin,
+    PermissionCode.RATE_PRIVATE_VIEW
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,6 +90,7 @@ export default async function TransfersPage({
             collaborations={acceptedCollaborations}
             entries={entries}
             privateRates={privateRates}
+            canViewPrivateRates={canViewPrivateRates}
             initialEntryId={initialEntryId}
             initialOpen={Boolean(initialEntryId)}
           />
@@ -182,18 +186,12 @@ export default async function TransfersPage({
                               <Badge variant="outline" className="w-fit">
                                 Via entrée
                               </Badge>
-                              {canViewEntries ? (
-                                <Link
-                                  href={`/entries/${transfer.entry_id}`}
-                                  className="font-medium text-foreground hover:underline"
-                                >
-                                  {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
-                                </Link>
-                              ) : (
-                                <span className="font-medium text-foreground">
-                                  {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
-                                </span>
-                              )}
+                              <Link
+                                href={`/entries/${transfer.entry_id}`}
+                                className="font-medium text-foreground hover:underline"
+                              >
+                                {entryReferenceById.get(transfer.entry_id) ?? transfer.entry_id.slice(0, 8)}
+                              </Link>
                             </div>
                           ) : (
                             <Badge variant="secondary" className="w-fit">

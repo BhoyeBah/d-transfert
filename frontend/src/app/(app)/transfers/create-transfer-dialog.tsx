@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
@@ -16,7 +17,6 @@ import {
 import { formatMoney } from "@/lib/format";
 import type { Collaboration, Entry, PrivateRate } from "@/types/api";
 import { Button } from "@/components/ui/button";
-import { CurrencySelect } from "@/components/currency-select";
 import {
   Dialog,
   DialogContent,
@@ -54,12 +54,14 @@ export function CreateTransferDialog({
   collaborations,
   entries,
   privateRates,
+  canViewPrivateRates,
   initialEntryId,
   initialOpen = false,
 }: {
   collaborations: Collaboration[];
   entries: Entry[];
   privateRates: PrivateRate[];
+  canViewPrivateRates: boolean;
   initialEntryId?: string | null;
   initialOpen?: boolean;
 }) {
@@ -82,7 +84,10 @@ export function CreateTransferDialog({
   const amount = useWatch({ control, name: "amount" });
   const sendMode = useWatch({ control, name: "send_mode" }) ?? "cash";
   const entryId = useWatch({ control, name: "entry_id" });
-  const selectedCollaboration = collaborations.find((c) => c.id === collaborationId);
+  const selectedCollaboration = useMemo(
+    () => collaborations.find((c) => c.id === collaborationId),
+    [collaborations, collaborationId]
+  );
   const eligibleEntries = entries.filter(
     (entry) =>
       !entry.merged_into_id &&
@@ -90,6 +95,7 @@ export function CreateTransferDialog({
   );
   const initialEntry = initialEntryId ? entries.find((entry) => entry.id === initialEntryId) : undefined;
   const selectedEntry = entryId ? eligibleEntries.find((entry) => entry.id === entryId) : undefined;
+  const entryCurrencies = selectedEntry ? Object.keys(selectedEntry.available_by_currency) : [];
   const availableForCurrency =
     selectedEntry && currency ? Number(selectedEntry.available_by_currency[currency] ?? 0) : null;
   const exceedsAvailable = Boolean(
@@ -112,11 +118,22 @@ export function CreateTransferDialog({
     }
   }, [initialEntry, initialEntryId, setValue]);
 
+  // La devise n'est jamais choisie librement : sans entrée, elle est verrouillée sur celle de
+  // la collaboration ; avec une entrée, elle est dérivée des devises réellement disponibles
+  // sur cette entrée (le taux d'envoi privé la convertira vers celle de la collaboration si
+  // elles diffèrent). Une saisie libre exposait à choisir une devise incohérente par erreur.
   useEffect(() => {
-    if (selectedCollaboration) {
-      setValue("currency", selectedCollaboration.currency);
+    if (!selectedEntry) {
+      setValue("currency", selectedCollaboration?.currency ?? "");
+      return;
     }
-  }, [selectedCollaboration, setValue]);
+    const currencies = Object.keys(selectedEntry.available_by_currency);
+    if (currencies.length === 1) {
+      setValue("currency", currencies[0]);
+    } else if (!currencies.includes(currency ?? "")) {
+      setValue("currency", "");
+    }
+  }, [selectedEntry, selectedCollaboration, currency, setValue]);
 
   const matchedRate = useMemo(() => {
     if (!collaborationId || !currency) return undefined;
@@ -130,13 +147,15 @@ export function CreateTransferDialog({
     if (currency === selectedCollaboration.currency) {
       return { amount, currency: selectedCollaboration.currency, rate: null as string | null };
     }
-    if (!matchedRate) return "missing_rate" as const;
+    if (!matchedRate) {
+      return canViewPrivateRates ? ("missing_rate" as const) : ("automatic_rate" as const);
+    }
     return {
       amount: amount * Number(matchedRate.rate),
       currency: selectedCollaboration.currency,
       rate: matchedRate.rate,
     };
-  }, [amount, currency, selectedCollaboration, matchedRate]);
+  }, [amount, currency, selectedCollaboration, matchedRate, canViewPrivateRates]);
 
   async function onSubmit(values: CreateTransferFormValues) {
     const result = await createTransferAction(values);
@@ -161,8 +180,8 @@ export function CreateTransferDialog({
         <DialogHeader>
           <DialogTitle>Créer un envoi international</DialogTitle>
           <DialogDescription>
-            Le taux d&apos;envoi privé configuré pour cette devise sera utilisé pour convertir le
-            montant à payer par le collaborateur. Assurez-vous de l&apos;avoir configuré au préalable.
+            Le taux d&apos;envoi privé configuré par votre entreprise sera appliqué automatiquement
+            lors de la création.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -212,12 +231,23 @@ export function CreateTransferDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise</Label>
-              <CurrencySelect
-                id="currency"
-                name="currency"
-                value={currency ?? ""}
-                onValueChange={(value) => setValue("currency", value)}
-              />
+              {selectedEntry && entryCurrencies.length > 1 ? (
+                <select
+                  id="currency"
+                  value={currency ?? ""}
+                  onChange={(e) => setValue("currency", e.target.value)}
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                >
+                  <option value="">Choisir…</option>
+                  {entryCurrencies.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input id="currency" value={currency ?? ""} disabled readOnly />
+              )}
               {errors.currency && <p className="text-sm text-destructive">{errors.currency.message}</p>}
             </div>
           </div>
@@ -230,10 +260,18 @@ export function CreateTransferDialog({
                   : "border-dashed border-input text-muted-foreground"
               }`}
             >
-              {conversionPreview === "missing_rate" ? (
+              {conversionPreview === "automatic_rate" ? (
                 <p>
-                  Aucun taux d&apos;envoi privé configuré pour {currency}. Configurez-le depuis la page de
-                  la collaboration avant de créer cet envoi.
+                  La conversion sera calculée automatiquement avec le taux d&apos;envoi privé actif.
+                  Sa valeur est masquée selon vos permissions.
+                </p>
+              ) : conversionPreview === "missing_rate" ? (
+                <p>
+                  Aucun taux d&apos;envoi privé configuré pour la devise source {currency}.{" "}
+                  <Link href="/private-rates" target="_blank" className="underline">
+                    Configurez-le depuis la page Taux d&apos;envoi
+                  </Link>{" "}
+                  avant de créer cet envoi.
                 </p>
               ) : (
                 <p>

@@ -72,9 +72,8 @@ export default async function PaymentsPage({
   const pendingCount = allPayments.filter((payment) => payment.status === "pending").length;
   const withEntryCount = allPayments.filter((payment) => payment.entry_id !== null).length;
   const directCount = allPayments.filter((payment) => payment.wallet_id !== null).length;
-  // Ne pas proposer un lien vers une entrée/wallet si l'utilisateur n'a pas la permission de
-  // le consulter — le clic mènerait systématiquement à une erreur de permission.
-  const canViewEntries = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
+  // Ne pas proposer un lien vers un wallet si l'utilisateur n'a pas la permission de le
+  // consulter — le clic mènerait systématiquement à une erreur de permission.
   const canViewWallets = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.WALLET_MANAGE);
 
   return (
@@ -163,18 +162,12 @@ export default async function PaymentsPage({
                             <Badge variant="outline" className="w-fit">
                               Via entrée
                             </Badge>
-                            {canViewEntries ? (
-                              <Link
-                                href={`/entries/${payment.entry_id}`}
-                                className="font-medium text-foreground hover:underline"
-                              >
-                                {entryReferenceById.get(payment.entry_id) ?? payment.entry_id.slice(0, 8)}
-                              </Link>
-                            ) : (
-                              <span className="font-medium text-foreground">
-                                {entryReferenceById.get(payment.entry_id) ?? payment.entry_id.slice(0, 8)}
-                              </span>
-                            )}
+                            <Link
+                              href={`/entries/${payment.entry_id}`}
+                              className="font-medium text-foreground hover:underline"
+                            >
+                              {entryReferenceById.get(payment.entry_id) ?? payment.entry_id.slice(0, 8)}
+                            </Link>
                           </div>
                         ) : payment.wallet_id ? (
                           <div className="flex flex-col gap-1">

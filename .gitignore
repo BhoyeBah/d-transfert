@@ -8,3 +8,4 @@ __pycache__/
 *.db
 /uploads/
 .claude/worktrees/
+uv.lock

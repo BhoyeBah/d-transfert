@@ -301,6 +301,7 @@ export type Payment = {
   note: string | null;
   collaborative_rate_used: string;
   converted_amount: string;
+  settles_debt: boolean;
   status: PaymentStatus;
   proof_id: string | null;
   created_by_id: string;
