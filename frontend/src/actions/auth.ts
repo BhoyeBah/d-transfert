@@ -99,6 +99,13 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
 }
 
 export async function logoutAction() {
+  try {
+    const refreshToken = await getRefreshToken();
+    await serverFetch("/api/v1/auth/logout", { method: "POST", body: { refresh_token: refreshToken ?? null } });
+  } catch {
+    // Le backend peut être injoignable ou le token déjà expiré/révoqué — dans tous les
+    // cas, l'utilisateur doit pouvoir se déconnecter côté navigateur.
+  }
   await clearAuthCookies();
   redirect("/login");
 }
