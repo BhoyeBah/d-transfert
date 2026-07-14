@@ -19,6 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CancelCollaborationButton } from "../cancel-collaboration-button";
+import { EditCollaborationDialog } from "../edit-collaboration-dialog";
 import {
   CollaborationDecisionButtons,
   ProposeRateDialog,
@@ -50,7 +52,10 @@ export default async function CollaborationDetailPage({
   const applicableRates =
     collaboration.status === "accepted"
       ? (await listPrivateRates()).filter(
-          (rate) => rate.is_active && (rate.collaboration_id === null || rate.collaboration_id === collaborationId)
+          (rate) =>
+            rate.is_active &&
+            (rate.collaboration_id === null || rate.collaboration_id === collaborationId) &&
+            (rate.target_currency === null || rate.target_currency === collaboration.currency)
         )
       : [];
 
@@ -82,6 +87,12 @@ export default async function CollaborationDetailPage({
             <StatusBadge status={collaboration.status} />
             {collaboration.status === "pending" && isTarget && (
               <CollaborationDecisionButtons collaborationId={collaboration.id} />
+            )}
+            {collaboration.status === "pending" && !isTarget && (
+              <>
+                <EditCollaborationDialog collaboration={collaboration} />
+                <CancelCollaborationButton collaborationId={collaboration.id} />
+              </>
             )}
           </div>
         </div>
@@ -241,7 +252,7 @@ export default async function CollaborationDetailPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Devise</TableHead>
+                    <TableHead>Paire</TableHead>
                     <TableHead>Pays</TableHead>
                     <TableHead>Type d&apos;opération</TableHead>
                     <TableHead className="text-right">Taux</TableHead>
@@ -250,7 +261,9 @@ export default async function CollaborationDetailPage({
                 <TableBody>
                   {applicableRates.map((rate) => (
                     <TableRow key={rate.id}>
-                      <TableCell>{rate.currency}</TableCell>
+                      <TableCell>
+                        {rate.currency} → {rate.target_currency ?? collaboration.currency}
+                      </TableCell>
                       <TableCell>{rate.country ?? "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {rate.operation_type ? sendModeLabels[rate.operation_type] : "Tous"}

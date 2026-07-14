@@ -6,8 +6,12 @@ import { serverFetch } from "@/lib/api";
 import { ApiError } from "@/lib/api-error";
 import type { ActionState } from "@/lib/action-state";
 import type { MutationResult } from "@/lib/mutation-result";
-import { proposeRateSchema, requestCollaborationSchema } from "@/lib/validation/collaborations";
-import type { CollaborationRateHistoryEntry } from "@/types/api";
+import {
+  proposeRateSchema,
+  requestCollaborationSchema,
+  updateCollaborationSchema,
+} from "@/lib/validation/collaborations";
+import type { Collaboration, CollaborationRateHistoryEntry } from "@/types/api";
 
 export async function requestCollaborationAction(
   _prevState: ActionState,
@@ -72,6 +76,44 @@ export async function rejectCollaborationAction(
   revalidatePath("/collaborations");
   revalidatePath(`/collaborations/${collaborationId}`);
   return { ok: true, data: undefined };
+}
+
+export async function cancelCollaborationAction(collaborationId: string): Promise<MutationResult> {
+  try {
+    await serverFetch(`/api/v1/collaborations/${collaborationId}/cancel`, { method: "POST" });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath("/collaborations");
+  revalidatePath(`/collaborations/${collaborationId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function updateCollaborationAction(
+  collaborationId: string,
+  payload: { currency?: string; initial_rate?: number; note?: string }
+): Promise<MutationResult<Collaboration>> {
+  const parsed = updateCollaborationSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+  try {
+    const collaboration = await serverFetch<Collaboration>(`/api/v1/collaborations/${collaborationId}`, {
+      method: "PATCH",
+      body: {
+        ...(parsed.data.currency !== undefined ? { currency: parsed.data.currency } : {}),
+        ...(parsed.data.initial_rate !== undefined ? { initial_rate: String(parsed.data.initial_rate) } : {}),
+        ...(parsed.data.note !== undefined ? { note: parsed.data.note || null } : {}),
+      },
+    });
+    revalidatePath("/collaborations");
+    revalidatePath(`/collaborations/${collaborationId}`);
+    return { ok: true, data: collaboration };
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
 }
 
 export async function proposeRateAction(

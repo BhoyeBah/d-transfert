@@ -7,5 +7,6 @@ export const createPrivateRateSchema = z.object({
   country: z.string().max(64).optional(),
   operation_type: z.enum(SEND_MODES, { message: "Type d'opération invalide." }).optional(),
   currency: z.string("Devise requise.").min(3, "Devise invalide.").max(8, "Devise invalide."),
+  target_currency: z.string().min(3, "Devise invalide.").max(8, "Devise invalide.").optional(),
   rate: z.coerce.number("Taux invalide.").gt(0, "Le taux doit être positif."),
 });

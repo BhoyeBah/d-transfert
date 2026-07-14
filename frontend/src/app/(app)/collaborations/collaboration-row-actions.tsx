@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { acceptCollaborationAction, rejectCollaborationAction } from "@/actions/collaborations";
 import type { Collaboration } from "@/types/api";
 import { Button } from "@/components/ui/button";
+import { CancelCollaborationButton } from "./cancel-collaboration-button";
+import { EditCollaborationDialog } from "./edit-collaboration-dialog";
 
 export function CollaborationRowActions({
   collaboration,
@@ -56,6 +58,12 @@ export function CollaborationRowActions({
           <Button size="sm" variant="outline" disabled={isPending} onClick={reject}>
             Rejeter
           </Button>
+        </>
+      )}
+      {collaboration.status === "pending" && !isTarget && (
+        <>
+          <EditCollaborationDialog collaboration={collaboration} />
+          <CancelCollaborationButton collaborationId={collaboration.id} />
         </>
       )}
     </div>

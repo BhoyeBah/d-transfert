@@ -18,13 +18,14 @@ import { SEND_MODES, sendModeLabels } from "@/lib/validation/transfers";
 
 export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: string }) {
   const [currency, setCurrency] = useState(defaultCurrency);
+  const [targetCurrency, setTargetCurrency] = useState(defaultCurrency);
   const [operationType, setOperationType] = useState<string>("");
 
   return (
     <CreateEntityDialog
       triggerLabel="Définir un taux"
       title="Taux d'envoi privé"
-      description="S'applique automatiquement à tous les collaborateurs pour cette devise. Visible uniquement par votre entreprise — jamais par vos collaborateurs. Vous pouvez le changer à tout moment en en définissant un nouveau."
+      description="Une paire de devises (ex. XOF → GNF) : combien vaut un envoi dans la devise source une fois converti dans la devise cible. Visible uniquement par votre entreprise — jamais par vos collaborateurs. Vous pouvez le changer à tout moment en en définissant un nouveau."
       action={createPrivateRateAction}
       successMessage="Taux enregistré."
     >
@@ -32,16 +33,30 @@ export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: 
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="currency">Devise</Label>
+              <Label htmlFor="currency">Devise source</Label>
               <CurrencySelect id="currency" name="currency" value={currency} onValueChange={setCurrency} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="rate">Taux</Label>
-              <Input id="rate" name="rate" type="number" min="0" step="0.000001" required />
-              {state.fieldErrors?.rate && (
-                <p className="text-sm text-destructive">{state.fieldErrors.rate[0]}</p>
+              <Label htmlFor="target_currency">Devise cible</Label>
+              <CurrencySelect
+                id="target_currency"
+                name="target_currency"
+                value={targetCurrency}
+                onValueChange={setTargetCurrency}
+              />
+              {state.fieldErrors?.target_currency && (
+                <p className="text-sm text-destructive">{state.fieldErrors.target_currency[0]}</p>
               )}
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="rate">
+              Taux ({currency === targetCurrency ? "1 pour 1" : `1 ${currency} = ? ${targetCurrency}`})
+            </Label>
+            <Input id="rate" name="rate" type="number" min="0" step="0.000001" required />
+            {state.fieldErrors?.rate && (
+              <p className="text-sm text-destructive">{state.fieldErrors.rate[0]}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">

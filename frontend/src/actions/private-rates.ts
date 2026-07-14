@@ -17,6 +17,7 @@ export async function createPrivateRateAction(
     country: formData.get("country") || undefined,
     operation_type: formData.get("operation_type") || undefined,
     currency: formData.get("currency"),
+    target_currency: formData.get("target_currency") || undefined,
     rate: formData.get("rate"),
   });
   if (!parsed.success) {
@@ -31,6 +32,7 @@ export async function createPrivateRateAction(
         country: parsed.data.country || null,
         operation_type: parsed.data.operation_type || null,
         currency: parsed.data.currency,
+        target_currency: parsed.data.target_currency || null,
         rate: String(parsed.data.rate),
       },
     });
