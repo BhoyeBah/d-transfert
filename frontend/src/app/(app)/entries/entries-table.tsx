@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { mergeEntriesAction } from "@/actions/entries";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { SortDir } from "@/lib/data-table";
-import type { Entry } from "@/types/api";
+import type { Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SortableHeader } from "@/components/data-table/sortable-header";
@@ -37,17 +37,25 @@ function availableSummary(entry: Entry) {
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
+function walletsSummary(entry: Entry, walletNameById: Map<string, string>) {
+  const names = [...new Set(entry.lines.map((line) => walletNameById.get(line.wallet_id) ?? line.wallet_id.slice(0, 8)))];
+  return names.length > 0 ? names.join(" · ") : "—";
+}
+
 export function EntriesTable({
   entries,
+  wallets,
   sortBy,
   sortDir,
   search,
 }: {
   entries: Entry[];
+  wallets: Wallet[];
   sortBy?: string;
   sortDir?: SortDir;
   search?: string;
 }) {
+  const walletNameById = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -107,6 +115,7 @@ export function EntriesTable({
             <SortableHeader column="reference" label="Référence" currentSort={sortBy} currentDir={sortDir} search={search} />
             <TableHead>Statut</TableHead>
             <TableHead>Client</TableHead>
+            <TableHead>Wallet</TableHead>
             <TableHead className="text-right">Disponible</TableHead>
             <SortableHeader column="created_at" label="Date" currentSort={sortBy} currentDir={sortDir} search={search} />
             <TableHead className="text-right">Actions</TableHead>
@@ -142,6 +151,7 @@ export function EntriesTable({
                   "—"
                 )}
               </TableCell>
+              <TableCell className="text-sm text-muted-foreground">{walletsSummary(entry, walletNameById)}</TableCell>
               <TableCell className="text-right tabular-nums">{availableSummary(entry)}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
               <TableCell>

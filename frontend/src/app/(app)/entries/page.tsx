@@ -72,7 +72,7 @@ export default async function EntriesPage({
             {entries.length === 0 ? (
               <EmptyState message="Aucune entrée ne correspond à cette recherche." />
             ) : (
-              <EntriesTable entries={entries} sortBy={sortBy} sortDir={sortDir} search={search} />
+              <EntriesTable entries={entries} wallets={wallets} sortBy={sortBy} sortDir={sortDir} search={search} />
             )}
             <DataTablePagination
               page={entriesPage.page}
