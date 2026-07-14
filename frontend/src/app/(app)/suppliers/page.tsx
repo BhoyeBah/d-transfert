@@ -90,7 +90,7 @@ export default async function SuppliersPage({
                         {formatMoney(supplier.balance, supplier.currency)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild size="sm" variant="outline">
+                        <Button asChild size="sm" variant="ghost">
                           <Link href={`/suppliers/${supplier.id}`}>
                             Voir
                             <ArrowRightIcon />
