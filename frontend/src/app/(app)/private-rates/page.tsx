@@ -30,6 +30,7 @@ export default async function PrivateRatesPage() {
     getCompanyMe(),
   ]);
   const collaborationById = new Map(collaborations.map((c) => [c.id, c]));
+  const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
   const sorted = [...rates].sort((a, b) => {
     if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
     return b.created_at.localeCompare(a.created_at);
@@ -40,12 +41,25 @@ export default async function PrivateRatesPage() {
       <PageHeader
         title="Taux d'envoi"
         description="Votre taux d'envoi privé, par paire de devises (ex. XOF → GNF) — jamais visible par vos collaborateurs. Défini une seule fois, il s'applique automatiquement à tous les envois dans cette paire, quel que soit le collaborateur, et vous pouvez le changer à tout moment."
-        action={<CreatePrivateRateDialog defaultCurrency={company.default_currency} />}
+        action={
+          <CreatePrivateRateDialog
+            defaultCurrency={company.default_currency}
+            collaborations={acceptedCollaborations}
+          />
+        }
       />
 
       <Card className="py-0">
         {sorted.length === 0 ? (
-          <EmptyState message="Aucun taux d'envoi défini." action={<CreatePrivateRateDialog defaultCurrency={company.default_currency} />} />
+          <EmptyState
+            message="Aucun taux d'envoi défini."
+            action={
+              <CreatePrivateRateDialog
+                defaultCurrency={company.default_currency}
+                collaborations={acceptedCollaborations}
+              />
+            }
+          />
         ) : (
           <Table>
             <TableHeader>

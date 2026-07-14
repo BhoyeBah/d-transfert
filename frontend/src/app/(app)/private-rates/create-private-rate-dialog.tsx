@@ -15,11 +15,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SEND_MODES, sendModeLabels } from "@/lib/validation/transfers";
+import type { Collaboration } from "@/types/api";
 
-export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: string }) {
+const ALL_COLLABORATORS = "all";
+
+export function CreatePrivateRateDialog({
+  defaultCurrency,
+  collaborations = [],
+}: {
+  defaultCurrency: string;
+  collaborations?: Collaboration[];
+}) {
   const [currency, setCurrency] = useState(defaultCurrency);
   const [targetCurrency, setTargetCurrency] = useState(defaultCurrency);
+  const [collaborationId, setCollaborationId] = useState(ALL_COLLABORATORS);
   const [operationType, setOperationType] = useState<string>("");
+
+  const scopedCollaboration = collaborations.find((c) => c.id === collaborationId);
+  // Un taux lié à une collaboration précise convertit forcément vers la devise de CETTE
+  // collaboration côté backend — la devise cible choisie ici serait ignorée, donc on l'affiche
+  // en lecture seule plutôt que de laisser croire qu'elle est modifiable.
+  const effectiveTargetCurrency = scopedCollaboration ? scopedCollaboration.currency : targetCurrency;
 
   return (
     <CreateEntityDialog
@@ -31,6 +47,27 @@ export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: 
     >
       {(state) => (
         <>
+          <div className="grid gap-1.5">
+            <Label htmlFor="collaboration_id">Portée</Label>
+            <Select value={collaborationId} onValueChange={setCollaborationId}>
+              <SelectTrigger id="collaboration_id" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_COLLABORATORS}>Tous les collaborateurs</SelectItem>
+                {collaborations.map((collaboration) => (
+                  <SelectItem key={collaboration.id} value={collaboration.id}>
+                    {collaboration.counterparty_company_name} ({collaboration.currency})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <input
+              type="hidden"
+              name="collaboration_id"
+              value={scopedCollaboration ? scopedCollaboration.id : ""}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise source</Label>
@@ -38,12 +75,19 @@ export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: 
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="target_currency">Devise cible</Label>
-              <CurrencySelect
-                id="target_currency"
-                name="target_currency"
-                value={targetCurrency}
-                onValueChange={setTargetCurrency}
-              />
+              {scopedCollaboration ? (
+                <>
+                  <Input value={effectiveTargetCurrency} disabled readOnly />
+                  <input type="hidden" name="target_currency" value={effectiveTargetCurrency} />
+                </>
+              ) : (
+                <CurrencySelect
+                  id="target_currency"
+                  name="target_currency"
+                  value={targetCurrency}
+                  onValueChange={setTargetCurrency}
+                />
+              )}
               {state.fieldErrors?.target_currency && (
                 <p className="text-sm text-destructive">{state.fieldErrors.target_currency[0]}</p>
               )}
@@ -51,7 +95,8 @@ export function CreatePrivateRateDialog({ defaultCurrency }: { defaultCurrency: 
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="rate">
-              Taux ({currency === targetCurrency ? "1 pour 1" : `1 ${currency} = ? ${targetCurrency}`})
+              Taux (
+              {currency === effectiveTargetCurrency ? "1 pour 1" : `1 ${currency} = ? ${effectiveTargetCurrency}`})
             </Label>
             <Input id="rate" name="rate" type="number" min="0" step="0.000001" required />
             {state.fieldErrors?.rate && (
