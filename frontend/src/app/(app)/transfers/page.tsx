@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftRight, Clock, HandCoins, Wallet } from "lucide-react";
+import { ArrowLeftRight, Clock, EyeIcon, HandCoins, Wallet } from "lucide-react";
 
 import { ApiError } from "@/lib/api-error";
 import { listCollaborations } from "@/lib/data/collaborations";
@@ -22,6 +22,7 @@ import { StatTile } from "@/components/stat-tile";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { DataTableSearchForm } from "@/components/data-table/search-form";
 import { SortableHeader } from "@/components/data-table/sortable-header";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -224,16 +225,20 @@ export default async function TransfersPage({
                           {formatDate(transfer.created_at)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {isPending && isCounterparty && (
-                            <div className="flex justify-end">
+                          <div className="flex justify-end gap-2">
+                            <Button asChild size="sm" variant="ghost">
+                              <Link href={`/transfers/${transfer.id}`}>
+                                <EyeIcon />
+                                Voir
+                              </Link>
+                            </Button>
+                            {isPending && isCounterparty && (
                               <TransferDecisionButtons transferId={transfer.id} wallets={walletsForApproval} />
-                            </div>
-                          )}
-                          {isPending && !isCounterparty && (
-                            <div className="flex justify-end">
+                            )}
+                            {isPending && !isCounterparty && (
                               <CancelTransferButton transferId={transfer.id} />
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

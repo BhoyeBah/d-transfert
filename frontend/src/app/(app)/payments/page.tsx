@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Clock, HandCoins, Wallet } from "lucide-react";
+import { Clock, EyeIcon, HandCoins, Wallet } from "lucide-react";
 
 import { ApiError } from "@/lib/api-error";
 import { listCollaborations } from "@/lib/data/collaborations";
@@ -21,6 +21,7 @@ import { StatTile } from "@/components/stat-tile";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { DataTableSearchForm } from "@/components/data-table/search-form";
 import { SortableHeader } from "@/components/data-table/sortable-header";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreatePaymentDialog } from "./create-payment-dialog";
+import { CancelPaymentButton, PaymentDecisionButtons } from "./[paymentId]/payment-decision-buttons";
 
 export const metadata: Metadata = { title: "Paiements client — D-Transfert" };
 
@@ -146,10 +148,14 @@ export default async function PaymentsPage({
                       currentDir={sortDir}
                       search={search}
                     />
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payments.map((payment) => (
+                  {payments.map((payment) => {
+                    const isCounterparty = payment.company_id !== me.company_id;
+                    const isPending = payment.status === "pending";
+                    return (
                     <TableRow key={payment.id}>
                       <TableCell className="font-mono text-xs">
                         <Link href={`/payments/${payment.id}`} className="hover:underline">
@@ -207,8 +213,21 @@ export default async function PaymentsPage({
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDate(payment.created_at)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button asChild size="sm" variant="ghost">
+                            <Link href={`/payments/${payment.id}`}>
+                              <EyeIcon />
+                              Voir
+                            </Link>
+                          </Button>
+                          {isPending && isCounterparty && <PaymentDecisionButtons paymentId={payment.id} />}
+                          {isPending && !isCounterparty && <CancelPaymentButton paymentId={payment.id} />}
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
