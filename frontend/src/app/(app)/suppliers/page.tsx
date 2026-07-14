@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRightIcon } from "lucide-react";
 
 import { listSuppliersPage } from "@/lib/data/suppliers";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTablePagination } from "@/components/data-table/pagination";
 import { DataTableSearchForm } from "@/components/data-table/search-form";
@@ -68,6 +70,7 @@ export default async function SuppliersPage({
                       search={search}
                       className="text-right"
                     />
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -85,6 +88,14 @@ export default async function SuppliersPage({
                         }`}
                       >
                         {formatMoney(supplier.balance, supplier.currency)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/suppliers/${supplier.id}`}>
+                            Voir
+                            <ArrowRightIcon />
+                          </Link>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
