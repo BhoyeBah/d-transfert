@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeftRight, Banknote, Wallet as WalletIcon, XCircle } from "lucide-react";
 
-import { listNationalOperationsPage } from "@/lib/data/national-operations";
+import { listNationalOperations, listNationalOperationsPage } from "@/lib/data/national-operations";
 import { listWallets } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate, formatMoney } from "@/lib/format";
 import { nationalOperationTypeLabels } from "@/lib/validation/national-operations";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { StatTile } from "@/components/stat-tile";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { DataTablePagination } from "@/components/data-table/pagination";
@@ -32,11 +34,16 @@ export default async function NationalOperationsPage({
   searchParams: Promise<DataTableSearchParams>;
 }) {
   const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
-  const [operationsPage, wallets] = await Promise.all([
+  const [operationsPage, allOperations, wallets] = await Promise.all([
     listNationalOperationsPage({ page, search, sortBy, sortDir }),
+    listNationalOperations(),
     listWallets(),
   ]);
   const operations = operationsPage.items;
+  const depositCount = allOperations.filter((op) => op.type === "deposit").length;
+  const withdrawalCount = allOperations.filter((op) => op.type === "withdrawal").length;
+  const exchangeCount = allOperations.filter((op) => op.type === "exchange").length;
+  const cancelledCount = allOperations.filter((op) => op.status === "cancelled").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,6 +52,18 @@ export default async function NationalOperationsPage({
         description="Dépôts, retraits, échanges et rééquilibrages entre wallets — sans frais."
         action={<CreateOperationDialog wallets={wallets} />}
       />
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Dépôts" value={depositCount} icon={Banknote} />
+        <StatTile label="Retraits" value={withdrawalCount} icon={WalletIcon} />
+        <StatTile label="Échanges" value={exchangeCount} icon={ArrowLeftRight} />
+        <StatTile
+          label="Annulées"
+          value={cancelledCount}
+          icon={XCircle}
+          tone={cancelledCount > 0 ? "warning" : "default"}
+        />
+      </section>
 
       {operationsPage.total === 0 && !search ? (
         <EmptyState message="Aucune opération enregistrée." />
