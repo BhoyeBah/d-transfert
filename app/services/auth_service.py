@@ -60,6 +60,8 @@ async def _generate_registration_code(db: AsyncSession, company_name: str) -> st
 async def register(db: AsyncSession, payload: RegisterRequest) -> RegisterResponse:
     if await company_repository.get_by_phone(db, payload.company_phone) is not None:
         raise ConflictError("Ce numéro de téléphone est déjà utilisé par une entreprise.")
+    if await company_repository.get_by_name(db, payload.company_name) is not None:
+        raise ConflictError("Ce nom d'entreprise est déjà utilisé.")
 
     registration_code = await _generate_registration_code(db, payload.company_name)
 
