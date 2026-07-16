@@ -36,7 +36,7 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+    <form onSubmit={onSubmit} method="post" className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold tracking-tight">Inscrire votre entreprise</h1>
         <p className="text-sm text-muted-foreground">
