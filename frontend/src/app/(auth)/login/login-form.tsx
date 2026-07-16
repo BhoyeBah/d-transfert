@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { loginAction } from "@/actions/auth";
 import { initialActionState } from "@/lib/action-state";
+import { isStaleServerActionError, recoverFromStaleServerAction } from "@/lib/server-action-recovery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,8 +41,16 @@ export function LoginForm({
     // incorrects — le matricule saisi disparaîtrait avec le mot de passe erroné.
     const formData = new FormData(event.currentTarget);
     startTransition(async () => {
-      const result = await loginAction(state, formData);
-      setState(result);
+      try {
+        const result = await loginAction(state, formData);
+        setState(result);
+      } catch (error) {
+        if (isStaleServerActionError(error)) {
+          recoverFromStaleServerAction();
+          return;
+        }
+        throw error;
+      }
     });
   }
 

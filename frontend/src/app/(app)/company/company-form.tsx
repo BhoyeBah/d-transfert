@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { updateCompanyAction } from "@/actions/company";
 import { initialActionState } from "@/lib/action-state";
+import { isStaleServerActionError, recoverFromStaleServerAction } from "@/lib/server-action-recovery";
 import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import type { CompanyMe } from "@/types/api";
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,18 @@ export function CompanyForm({ company }: { company: CompanyMe }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     startTransition(async () => {
-      const result = await updateCompanyAction(state, formData);
-      setState(result);
-      if (result.status === "success") {
-        toast.success("Entreprise mise à jour avec succès.");
+      try {
+        const result = await updateCompanyAction(state, formData);
+        setState(result);
+        if (result.status === "success") {
+          toast.success("Entreprise mise à jour avec succès.");
+        }
+      } catch (error) {
+        if (isStaleServerActionError(error)) {
+          recoverFromStaleServerAction();
+          return;
+        }
+        throw error;
       }
     });
   }

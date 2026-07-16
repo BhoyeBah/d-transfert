@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { registerAction } from "@/actions/auth";
 import { initialActionState } from "@/lib/action-state";
+import { isStaleServerActionError, recoverFromStaleServerAction } from "@/lib/server-action-recovery";
 import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +31,16 @@ export function RegisterForm() {
     // saisis restent affichés le temps de corriger uniquement le champ en erreur.
     const formData = new FormData(event.currentTarget);
     startTransition(async () => {
-      const result = await registerAction(state, formData);
-      setState(result);
+      try {
+        const result = await registerAction(state, formData);
+        setState(result);
+      } catch (error) {
+        if (isStaleServerActionError(error)) {
+          recoverFromStaleServerAction();
+          return;
+        }
+        throw error;
+      }
     });
   }
 
