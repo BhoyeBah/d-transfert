@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { useFormStatus } from "react-dom";
+import { toast } from "sonner";
 
 import { resetPasswordAction } from "@/actions/auth";
 import { initialActionState } from "@/lib/action-state";
@@ -10,20 +10,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Validation..." : "Réinitialiser le mot de passe"}
-    </Button>
-  );
-}
+export function ResetPasswordForm({ matricule, codeSent }: { matricule?: string; codeSent?: boolean }) {
+  const [state, setState] = useState(initialActionState);
+  const [isPending, startTransition] = useTransition();
 
-export function ResetPasswordForm({ matricule }: { matricule?: string }) {
-  const [state, action] = useActionState(resetPasswordAction, initialActionState);
+  useEffect(() => {
+    if (codeSent) {
+      toast.success("Code de réinitialisation envoyé.");
+    }
+  }, [codeSent]);
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(async () => {
+      const result = await resetPasswordAction(state, formData);
+      setState(result);
+    });
+  }
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold tracking-tight">Nouveau mot de passe</h1>
         <p className="text-sm text-muted-foreground">
@@ -73,7 +80,9 @@ export function ResetPasswordForm({ matricule }: { matricule?: string }) {
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
       )}
 
-      <SubmitButton />
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Validation..." : "Réinitialiser le mot de passe"}
+      </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         <Link href="/login" className="font-medium text-foreground hover:underline">

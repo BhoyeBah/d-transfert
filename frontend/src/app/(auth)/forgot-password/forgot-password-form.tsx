@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useFormStatus } from "react-dom";
 
 import { forgotPasswordAction } from "@/actions/auth";
 import { initialActionState } from "@/lib/action-state";
@@ -10,20 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Envoi..." : "Recevoir un code"}
-    </Button>
-  );
-}
-
 export function ForgotPasswordForm() {
-  const [state, action] = useActionState(forgotPasswordAction, initialActionState);
+  const [state, setState] = useState(initialActionState);
+  const [isPending, startTransition] = useTransition();
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(async () => {
+      const result = await forgotPasswordAction(state, formData);
+      setState(result);
+    });
+  }
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold tracking-tight">Mot de passe oublié</h1>
         <p className="text-sm text-muted-foreground">
@@ -43,7 +43,9 @@ export function ForgotPasswordForm() {
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
       )}
 
-      <SubmitButton />
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Envoi..." : "Recevoir un code"}
+      </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         <Link href="/login" className="font-medium text-foreground hover:underline">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { updateCompanyAction } from "@/actions/company";
 import { initialActionState } from "@/lib/action-state";
@@ -11,10 +12,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function CompanyForm({ company }: { company: CompanyMe }) {
-  const [state, action] = useActionState(updateCompanyAction, initialActionState);
+  const [state, setState] = useState(initialActionState);
+  const [isPending, startTransition] = useTransition();
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(async () => {
+      const result = await updateCompanyAction(state, formData);
+      setState(result);
+      if (result.status === "success") {
+        toast.success("Entreprise mise à jour avec succès.");
+      }
+    });
+  }
 
   return (
-    <form action={action} className="grid gap-4">
+    <form onSubmit={onSubmit} className="grid gap-4">
       <div className="grid gap-1.5">
         <Label htmlFor="name">Nom de l&apos;entreprise</Label>
         <Input id="name" name="name" defaultValue={company.name} required />
@@ -57,7 +71,9 @@ export function CompanyForm({ company }: { company: CompanyMe }) {
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
       )}
       <div className="flex justify-end">
-        <Button type="submit">Enregistrer</Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Enregistrement..." : "Enregistrer"}
+        </Button>
       </div>
     </form>
   );

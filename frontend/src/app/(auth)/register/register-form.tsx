@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useFormStatus } from "react-dom";
 
 import { registerAction } from "@/actions/auth";
 import { initialActionState } from "@/lib/action-state";
@@ -18,21 +17,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Création..." : "Créer l'entreprise"}
-    </Button>
-  );
-}
-
 export function RegisterForm() {
-  const [state, action] = useActionState(registerAction, initialActionState);
+  const [state, setState] = useState(initialActionState);
+  const [isPending, startTransition] = useTransition();
   const [currency, setCurrency] = useState<string>(SUPPORTED_CURRENCIES[0]);
 
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Volontairement pas de `<form action={...}>` (Server Action native) : React réinitialise
+    // les champs non contrôlés une fois l'action résolue, même en cas d'erreur — l'utilisateur
+    // devrait alors tout retaper. En passant par onSubmit + startTransition, les champs déjà
+    // saisis restent affichés le temps de corriger uniquement le champ en erreur.
+    const formData = new FormData(event.currentTarget);
+    startTransition(async () => {
+      const result = await registerAction(state, formData);
+      setState(result);
+    });
+  }
+
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold tracking-tight">Inscrire votre entreprise</h1>
         <p className="text-sm text-muted-foreground">
@@ -118,7 +122,9 @@ export function RegisterForm() {
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
       )}
 
-      <SubmitButton />
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Création..." : "Créer l'entreprise"}
+      </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         Déjà inscrit ?{" "}
