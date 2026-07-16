@@ -49,8 +49,8 @@ export function RegisterForm() {
       <div className="flex flex-col gap-1.5">
         <h1 className="text-xl font-semibold tracking-tight">Inscrire votre entreprise</h1>
         <p className="text-sm text-muted-foreground">
-          Un matricule d&apos;entreprise vous sera attribué, il servira à votre connexion et à vos
-          collaborations.
+          Un matricule dérivé du nom de l&apos;entreprise vous sera attribué (ex : gk-business), il
+          servira à votre connexion et à vos collaborations.
         </p>
       </div>
 

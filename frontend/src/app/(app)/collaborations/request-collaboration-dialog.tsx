@@ -23,7 +23,7 @@ export function RequestCollaborationDialog({ defaultCurrency }: { defaultCurrenc
         <>
           <div className="grid gap-1.5">
             <Label htmlFor="target_matricule">Matricule de l&apos;entreprise partenaire</Label>
-            <Input id="target_matricule" name="target_matricule" placeholder="DT-XXXXXXXX" required />
+            <Input id="target_matricule" name="target_matricule" placeholder="ex : gk-business" required />
             {state.fieldErrors?.target_matricule && (
               <p className="text-sm text-destructive">{state.fieldErrors.target_matricule[0]}</p>
             )}

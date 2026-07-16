@@ -71,7 +71,7 @@ export function LoginForm({
 
       <div className="grid gap-1.5">
         <Label htmlFor="matricule">Matricule</Label>
-        <Input id="matricule" name="matricule" placeholder="DT-XXXXXXXX" autoComplete="username" required />
+        <Input id="matricule" name="matricule" placeholder="ex : gk-business" autoComplete="username" required />
         {state.fieldErrors?.matricule && (
           <p className="text-sm text-destructive">{state.fieldErrors.matricule[0]}</p>
         )}

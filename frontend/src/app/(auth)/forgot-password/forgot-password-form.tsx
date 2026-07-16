@@ -46,7 +46,7 @@ export function ForgotPasswordForm() {
 
       <div className="grid gap-1.5">
         <Label htmlFor="matricule">Matricule</Label>
-        <Input id="matricule" name="matricule" placeholder="DT-XXXXXXXX" required />
+        <Input id="matricule" name="matricule" placeholder="ex : gk-business" required />
         {state.fieldErrors?.matricule && (
           <p className="text-sm text-destructive">{state.fieldErrors.matricule[0]}</p>
         )}
