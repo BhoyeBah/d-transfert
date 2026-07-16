@@ -54,6 +54,10 @@ export function LoginForm({
         </p>
       </div>
 
+      {state.status === "error" && state.message && (
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
+      )}
+
       {next && <input type="hidden" name="next" value={next} />}
 
       <div className="grid gap-1.5">
@@ -82,10 +86,6 @@ export function LoginForm({
           <p className="text-sm text-destructive">{state.fieldErrors.password[0]}</p>
         )}
       </div>
-
-      {state.status === "error" && state.message && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
-      )}
 
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Connexion..." : "Se connecter"}

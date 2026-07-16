@@ -38,6 +38,10 @@ export function ResetPasswordForm({ matricule, codeSent }: { matricule?: string;
         </p>
       </div>
 
+      {state.status === "error" && state.message && (
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
+      )}
+
       <div className="grid gap-1.5">
         <Label htmlFor="matricule">Matricule</Label>
         <Input id="matricule" name="matricule" defaultValue={matricule} required />
@@ -75,10 +79,6 @@ export function ResetPasswordForm({ matricule, codeSent }: { matricule?: string;
           <p className="text-sm text-destructive">{state.fieldErrors.new_password_confirmation[0]}</p>
         )}
       </div>
-
-      {state.status === "error" && state.message && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.message}</p>
-      )}
 
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Validation..." : "Réinitialiser le mot de passe"}
