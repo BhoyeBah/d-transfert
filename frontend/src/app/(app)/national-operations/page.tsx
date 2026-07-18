@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CreateOperationDialog } from "./create-operation-dialog";
+import { OperationForm } from "./operation-form";
 import { NationalOperationRowActions } from "./national-operation-row-actions";
 
 export const metadata: Metadata = { title: "Opérations nationales — D-Transfert" };
@@ -50,7 +50,6 @@ export default async function NationalOperationsPage({
       <PageHeader
         title="Opérations nationales"
         description="Dépôts, retraits, échanges et rééquilibrages entre wallets — sans frais."
-        action={<CreateOperationDialog wallets={wallets} />}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -64,6 +63,8 @@ export default async function NationalOperationsPage({
           tone={cancelledCount > 0 ? "warning" : "default"}
         />
       </section>
+
+      <OperationForm wallets={wallets} />
 
       {operationsPage.total === 0 && !search ? (
         <EmptyState message="Aucune opération enregistrée." />
