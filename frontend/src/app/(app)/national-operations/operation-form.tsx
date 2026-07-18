@@ -175,7 +175,24 @@ export function OperationForm({ wallets }: { wallets: Wallet[] }) {
                             min="0"
                             step="0.01"
                             className="w-28"
-                            {...register(`lines.${index}.amount`, { valueAsNumber: true })}
+                            {...register(`lines.${index}.amount`, {
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                // Cas courant (un wallet d'entrée, un wallet de sortie) : reporter
+                                // automatiquement le montant de l'autre côté, il n'y a alors
+                                // aucune ambiguïté sur la ligne à mettre à jour.
+                                const oppositeDirection = column.direction === "in" ? "out" : "in";
+                                const oppositeIndexes = fields
+                                  .map((_, i) => i)
+                                  .filter((i) => watchedLines?.[i]?.direction === oppositeDirection);
+                                if (oppositeIndexes.length === 1) {
+                                  const value = e.target.valueAsNumber;
+                                  setValue(`lines.${oppositeIndexes[0]}.amount`, Number.isFinite(value) ? value : 0, {
+                                    shouldDirty: true,
+                                  });
+                                }
+                              },
+                            })}
                           />
                           <input type="hidden" {...register(`lines.${index}.currency`)} />
                           <input type="hidden" {...register(`lines.${index}.direction`)} />
