@@ -17,7 +17,15 @@ import {
 type TokenResponse = { access_token: string; refresh_token: string };
 type RegisterResponse = { company_id: string; registration_code: string; owner_user_id: string };
 
-export async function registerAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+export type RegisterActionState = ActionState & {
+  registrationCode?: string;
+  pendingApproval?: boolean;
+};
+
+export async function registerAction(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<RegisterActionState> {
   const parsed = registerSchema.safeParse({
     company_name: formData.get("company_name"),
     company_phone: formData.get("company_phone"),
@@ -46,7 +54,11 @@ export async function registerAction(_prevState: ActionState, formData: FormData
     return { status: "error", message: "Impossible de contacter le serveur." };
   }
 
-  let tokens: TokenResponse;
+  // Volontairement pas de redirect() ici : l'utilisateur doit d'abord voir et confirmer
+  // avoir noté son matricule (popup côté client) avant de continuer vers le tableau de
+  // bord ou la connexion — sinon ce code, qui sert d'identifiant de connexion, ne serait
+  // affiché qu'une fraction de seconde avant la redirection.
+  let tokens: TokenResponse | null = null;
   try {
     tokens = await serverFetch<TokenResponse>("/api/v1/auth/login", {
       method: "POST",
@@ -54,11 +66,18 @@ export async function registerAction(_prevState: ActionState, formData: FormData
       skipAuth: true,
     });
   } catch {
-    redirect(`/login?registered=${registration.registration_code}`);
+    tokens = null;
   }
 
-  await setAuthCookies(tokens.access_token, tokens.refresh_token);
-  redirect("/dashboard");
+  if (tokens) {
+    await setAuthCookies(tokens.access_token, tokens.refresh_token);
+  }
+
+  return {
+    status: "success",
+    registrationCode: registration.registration_code,
+    pendingApproval: tokens === null,
+  };
 }
 
 export async function loginAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
