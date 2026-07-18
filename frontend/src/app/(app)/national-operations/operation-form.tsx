@@ -27,8 +27,8 @@ import {
 } from "@/components/ui/select";
 
 const COLUMNS = [
-  { direction: "in", title: "Entrée", tone: "text-success" },
-  { direction: "out", title: "Sortie", tone: "text-destructive" },
+  { direction: "in", title: "Entrée", tone: "text-success", panel: "border-success/30 bg-success/5" },
+  { direction: "out", title: "Sortie", tone: "text-destructive", panel: "border-destructive/30 bg-destructive/5" },
 ] as const;
 
 export function OperationForm({ wallets }: { wallets: Wallet[] }) {
@@ -117,7 +117,10 @@ export function OperationForm({ wallets }: { wallets: Wallet[] }) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {COLUMNS.map((column) => (
-              <div key={column.direction} className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <div
+                key={column.direction}
+                className={`flex flex-col gap-3 rounded-md border p-3 ${column.panel}`}
+              >
                 <div className="flex items-center justify-between">
                   <span className={`text-sm font-semibold ${column.tone}`}>{column.title}</span>
                   <Button
