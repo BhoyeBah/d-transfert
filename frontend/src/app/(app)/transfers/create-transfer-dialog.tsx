@@ -15,7 +15,6 @@ import {
   type CreateTransferFormValues,
 } from "@/lib/validation/transfers";
 import { formatMoney } from "@/lib/format";
-import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import type { Collaboration, Entry, PrivateRate } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -152,9 +151,11 @@ export function CreateTransferDialog({
     }
   }, [selectedEntry, selectedCollaboration, currency, setValue]);
 
-  // La devise de destination (celle dans laquelle le bénéficiaire est payé) reprend par défaut
-  // celle de la collaboration dès qu'on la choisit, mais reste librement modifiable ensuite :
-  // elle est distincte de la devise de la collaboration (qui ne sert qu'au solde commun).
+  // La devise de destination (celle dans laquelle le bénéficiaire est payé) est verrouillée sur
+  // celle de la collaboration choisie : c'est la devise réellement utilisée par ce
+  // collaborateur (ex. GNF en Guinée), une saisie libre exposait à en choisir une incohérente
+  // par erreur. Si un envoi doit vraiment cibler une autre devise, mieux vaut créer une
+  // collaboration dédiée dans cette devise.
   useEffect(() => {
     if (selectedCollaboration) {
       setValue("target_currency", selectedCollaboration.currency);
@@ -280,22 +281,7 @@ export function CreateTransferDialog({
 
           <div className="grid gap-1.5">
             <Label htmlFor="target_currency">Devise de destination (bénéficiaire)</Label>
-            <Select
-              value={targetCurrency ?? ""}
-              onValueChange={(value) => setValue("target_currency", value)}
-              disabled={!currency}
-            >
-              <SelectTrigger id="target_currency" className="w-full">
-                <SelectValue placeholder="Choisissez d'abord une collaboration" />
-              </SelectTrigger>
-              <SelectContent>
-                {SUPPORTED_CURRENCIES.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {currency} → {code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input id="target_currency" value={targetCurrency ?? ""} disabled readOnly />
             {errors.target_currency && (
               <p className="text-sm text-destructive">{errors.target_currency.message}</p>
             )}
