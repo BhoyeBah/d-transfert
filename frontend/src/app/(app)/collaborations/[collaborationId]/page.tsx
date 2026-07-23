@@ -42,20 +42,15 @@ export default async function CollaborationDetailPage({
   ]);
 
   const balance = collaboration.status === "accepted" ? await getCollaboratorBalance(collaborationId) : null;
-  // Le taux d'envoi privé n'est pas propre à cette collaboration : c'est un réglage par devise
-  // SOURCE (celle de l'envoi, pas celle de la collaboration), géré depuis la page "Taux
-  // d'envoi", qui s'applique automatiquement à tous les collaborateurs utilisant cette
-  // collaboration. Un envoi déjà dans la devise de la collaboration ne nécessite aucun taux
-  // (passthrough direct) — ce sont les envois dans une AUTRE devise (ex. une entrée en XOF vers
-  // une collaboration en GNF) qui en ont besoin. On affiche donc ici tous les taux actifs
-  // applicables à cette collaboration, quelle que soit leur devise.
+  // Le taux d'envoi privé n'est pas propre à cette collaboration : c'est un réglage par paire de
+  // devises (source de l'envoi → destination choisie pour ce bénéficiaire), géré depuis la page
+  // "Taux d'envoi", indépendant de la devise de la collaboration elle-même (qui ne sert qu'au
+  // solde commun). On affiche ici tous les taux actifs applicables à cette collaboration
+  // (globaux ou explicitement liés à elle), quelle que soit leur devise cible.
   const applicableRates =
     collaboration.status === "accepted"
       ? (await listPrivateRates()).filter(
-          (rate) =>
-            rate.is_active &&
-            (rate.collaboration_id === null || rate.collaboration_id === collaborationId) &&
-            (rate.target_currency === null || rate.target_currency === collaboration.currency)
+          (rate) => rate.is_active && (rate.collaboration_id === null || rate.collaboration_id === collaborationId)
         )
       : [];
 
@@ -245,9 +240,7 @@ export default async function CollaborationDetailPage({
           </CardHeader>
           <CardContent>
             {applicableRates.length === 0 ? (
-              <EmptyState
-                message={`Aucun taux d'envoi actif pour cette collaboration. Un envoi dans une devise différente de ${collaboration.currency} sera bloqué tant qu'un taux n'est pas défini pour cette devise source.`}
-              />
+              <EmptyState message="Aucun taux d'envoi actif pour cette collaboration. Un envoi sera bloqué tant qu'un taux n'est pas défini pour la paire de devises voulue." />
             ) : (
               <Table>
                 <TableHeader>
@@ -262,7 +255,7 @@ export default async function CollaborationDetailPage({
                   {applicableRates.map((rate) => (
                     <TableRow key={rate.id}>
                       <TableCell>
-                        {rate.currency} → {rate.target_currency ?? collaboration.currency}
+                        {rate.currency} → {rate.target_currency ?? "toutes devises"}
                       </TableCell>
                       <TableCell>{rate.country ?? "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">

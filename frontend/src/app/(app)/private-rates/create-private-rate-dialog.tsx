@@ -32,10 +32,9 @@ export function CreatePrivateRateDialog({
   const [operationType, setOperationType] = useState<string>("");
 
   const scopedCollaboration = collaborations.find((c) => c.id === collaborationId);
-  // Un taux lié à une collaboration précise convertit forcément vers la devise de CETTE
-  // collaboration côté backend — la devise cible choisie ici serait ignorée, donc on l'affiche
-  // en lecture seule plutôt que de laisser croire qu'elle est modifiable.
-  const effectiveTargetCurrency = scopedCollaboration ? scopedCollaboration.currency : targetCurrency;
+  // La devise de destination d'un envoi est choisie librement à chaque envoi (indépendante de
+  // la devise de la collaboration, qui ne sert qu'au solde commun) — un taux lié à une
+  // collaboration précise peut donc très bien cibler une autre devise que celle-ci.
 
   return (
     <CreateEntityDialog
@@ -75,19 +74,12 @@ export function CreatePrivateRateDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="target_currency">Devise cible</Label>
-              {scopedCollaboration ? (
-                <>
-                  <Input value={effectiveTargetCurrency} disabled readOnly />
-                  <input type="hidden" name="target_currency" value={effectiveTargetCurrency} />
-                </>
-              ) : (
-                <CurrencySelect
-                  id="target_currency"
-                  name="target_currency"
-                  value={targetCurrency}
-                  onValueChange={setTargetCurrency}
-                />
-              )}
+              <CurrencySelect
+                id="target_currency"
+                name="target_currency"
+                value={targetCurrency}
+                onValueChange={setTargetCurrency}
+              />
               {state.fieldErrors?.target_currency && (
                 <p className="text-sm text-destructive">{state.fieldErrors.target_currency[0]}</p>
               )}
@@ -95,8 +87,7 @@ export function CreatePrivateRateDialog({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="rate">
-              Taux (
-              {currency === effectiveTargetCurrency ? "1 pour 1" : `1 ${currency} = ? ${effectiveTargetCurrency}`})
+              Taux ({currency === targetCurrency ? "1 pour 1" : `1 ${currency} = ? ${targetCurrency}`})
             </Label>
             <Input id="rate" name="rate" type="number" min="0" step="0.000001" required />
             {state.fieldErrors?.rate && (
