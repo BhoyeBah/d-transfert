@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import { SEND_MODES, sendModeLabels } from "@/lib/validation/transfers";
 import type { Collaboration } from "@/types/api";
 
@@ -74,12 +75,19 @@ export function CreatePrivateRateDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="target_currency">Devise cible</Label>
-              <CurrencySelect
-                id="target_currency"
-                name="target_currency"
-                value={targetCurrency}
-                onValueChange={setTargetCurrency}
-              />
+              <Select value={targetCurrency} onValueChange={setTargetCurrency}>
+                <SelectTrigger id="target_currency" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CURRENCIES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {currency} → {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="target_currency" value={targetCurrency} />
               {state.fieldErrors?.target_currency && (
                 <p className="text-sm text-destructive">{state.fieldErrors.target_currency[0]}</p>
               )}
