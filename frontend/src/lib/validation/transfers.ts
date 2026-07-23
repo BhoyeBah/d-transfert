@@ -23,6 +23,7 @@ export const createTransferSchema = z.object({
   entry_id: z.string().optional(),
   amount: z.number("Montant invalide.").gt(0, "Montant requis."),
   currency: z.string("Devise requise.").min(3, "Devise invalide.").max(8, "Devise invalide."),
+  target_currency: z.string().min(3, "Devise invalide.").max(8, "Devise invalide.").optional(),
   beneficiary_name: z.string().max(255).optional(),
   beneficiary_phone: z.string().min(1, "Téléphone du bénéficiaire requis."),
   send_mode: z.enum(SEND_MODES, { message: "Mode d'envoi invalide." }),

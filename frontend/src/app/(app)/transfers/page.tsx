@@ -68,7 +68,6 @@ export default async function TransfersPage({
   ]);
   const transfers = transfersPage.items;
   const entryReferenceById = new Map(entries.map((entry) => [entry.id, entry.reference]));
-  const collaborationById = new Map(collaborations.map((collaboration) => [collaboration.id, collaboration]));
   const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
   const initialEntryId = rawParams.entry ?? null;
   const pendingCount = allTransfers.filter((transfer) => transfer.status === "pending").length;
@@ -168,11 +167,10 @@ export default async function TransfersPage({
                 </TableHeader>
                 <TableBody>
                   {transfers.map((transfer) => {
-                    const collaboration = collaborationById.get(transfer.collaboration_id);
                     const isCounterparty = transfer.company_id !== me.company_id;
                     const isPending = transfer.status === "pending";
                     const walletsForApproval = wallets.filter(
-                      (wallet) => wallet.currency === collaboration?.currency && wallet.status === "active"
+                      (wallet) => wallet.currency === transfer.target_currency && wallet.status === "active"
                     );
                     return (
                       <TableRow key={transfer.id}>
@@ -212,9 +210,9 @@ export default async function TransfersPage({
                         <TableCell className="text-right tabular-nums">
                           <div className="flex flex-col items-end">
                             <span className="font-medium">
-                              {formatMoney(transfer.converted_amount, collaboration?.currency ?? transfer.currency)}
+                              {formatMoney(transfer.converted_amount, transfer.target_currency)}
                             </span>
-                            {collaboration && collaboration.currency !== transfer.currency && (
+                            {transfer.target_currency !== transfer.currency && (
                               <span className="text-xs text-muted-foreground">
                                 {formatMoney(transfer.amount, transfer.currency)}
                               </span>

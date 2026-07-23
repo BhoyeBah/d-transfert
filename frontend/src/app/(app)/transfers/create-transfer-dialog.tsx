@@ -17,6 +17,7 @@ import {
 import { formatMoney } from "@/lib/format";
 import type { Collaboration, Entry, PrivateRate } from "@/types/api";
 import { Button } from "@/components/ui/button";
+import { CurrencySelect } from "@/components/currency-select";
 import {
   Dialog,
   DialogContent,
@@ -36,18 +37,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// La devise cible n'est pas forcément celle de la collaboration : celle-ci ne sert qu'au solde
+// commun / aux règlements entre collaborateurs, alors qu'un envoi donné peut payer le
+// bénéficiaire dans une autre devise (ex. collaboration réglée en XOF, envoi payé en GNF), du
+// moment qu'un taux d'envoi privé actif existe pour cette paire précise. La correspondance exacte
+// de devise cible est toujours préférée au taux "toutes destinations" (target_currency absent).
 function findMatchingPrivateRate(
   rates: PrivateRate[],
   collaborationId: string,
   currency: string,
+  targetCurrency: string,
   sendMode: string
 ): PrivateRate | undefined {
-  const active = rates.filter((rate) => rate.is_active && rate.currency === currency);
-  return (
-    active.find((rate) => rate.collaboration_id === collaborationId && rate.operation_type === sendMode) ??
-    active.find((rate) => rate.collaboration_id === collaborationId && rate.operation_type === null) ??
-    active.find((rate) => rate.collaboration_id === null && rate.operation_type === null)
+  const active = rates.filter(
+    (rate) =>
+      rate.is_active &&
+      rate.currency === currency &&
+      (rate.target_currency === targetCurrency || rate.target_currency === null)
   );
+  for (const wantTarget of [targetCurrency, null]) {
+    const candidates = active.filter((rate) => rate.target_currency === wantTarget);
+    const match =
+      candidates.find((rate) => rate.collaboration_id === collaborationId && rate.operation_type === sendMode) ??
+      candidates.find((rate) => rate.collaboration_id === collaborationId && rate.operation_type === null) ??
+      candidates.find((rate) => rate.collaboration_id === null && rate.operation_type === null);
+    if (match) return match;
+  }
+  return undefined;
 }
 
 export function CreateTransferDialog({
@@ -76,11 +92,12 @@ export function CreateTransferDialog({
     formState: { errors, isSubmitting },
   } = useForm<CreateTransferFormValues>({
     resolver: zodResolver(createTransferSchema),
-    defaultValues: { send_mode: "cash", currency: "" },
+    defaultValues: { send_mode: "cash", currency: "", target_currency: "" },
   });
 
   const collaborationId = useWatch({ control, name: "collaboration_id" });
   const currency = useWatch({ control, name: "currency" });
+  const targetCurrency = useWatch({ control, name: "target_currency" });
   const amount = useWatch({ control, name: "amount" });
   const sendMode = useWatch({ control, name: "send_mode" }) ?? "cash";
   const entryId = useWatch({ control, name: "entry_id" });
@@ -135,27 +152,36 @@ export function CreateTransferDialog({
     }
   }, [selectedEntry, selectedCollaboration, currency, setValue]);
 
+  // La devise de destination (celle dans laquelle le bénéficiaire est payé) reprend par défaut
+  // celle de la collaboration dès qu'on la choisit, mais reste librement modifiable ensuite :
+  // elle est distincte de la devise de la collaboration (qui ne sert qu'au solde commun).
+  useEffect(() => {
+    if (selectedCollaboration) {
+      setValue("target_currency", selectedCollaboration.currency);
+    }
+  }, [selectedCollaboration, setValue]);
+
   const matchedRate = useMemo(() => {
-    if (!collaborationId || !currency) return undefined;
-    return findMatchingPrivateRate(privateRates, collaborationId, currency, sendMode);
-  }, [privateRates, collaborationId, currency, sendMode]);
+    if (!collaborationId || !currency || !targetCurrency) return undefined;
+    return findMatchingPrivateRate(privateRates, collaborationId, currency, targetCurrency, sendMode);
+  }, [privateRates, collaborationId, currency, targetCurrency, sendMode]);
 
   const conversionPreview = useMemo(() => {
-    if (!selectedCollaboration || !currency || !amount || Number.isNaN(amount) || amount <= 0) {
+    if (!targetCurrency || !currency || !amount || Number.isNaN(amount) || amount <= 0) {
       return null;
     }
-    if (currency === selectedCollaboration.currency) {
-      return { amount, currency: selectedCollaboration.currency, rate: null as string | null };
+    if (currency === targetCurrency) {
+      return { amount, currency: targetCurrency, rate: null as string | null };
     }
     if (!matchedRate) {
       return canViewPrivateRates ? ("missing_rate" as const) : ("automatic_rate" as const);
     }
     return {
       amount: amount * Number(matchedRate.rate),
-      currency: selectedCollaboration.currency,
+      currency: targetCurrency,
       rate: matchedRate.rate,
     };
-  }, [amount, currency, selectedCollaboration, matchedRate, canViewPrivateRates]);
+  }, [amount, currency, targetCurrency, matchedRate, canViewPrivateRates]);
 
   async function onSubmit(values: CreateTransferFormValues) {
     const result = await createTransferAction(values);
@@ -252,6 +278,19 @@ export function CreateTransferDialog({
             </div>
           </div>
 
+          <div className="grid gap-1.5">
+            <Label htmlFor="target_currency">Devise de destination (bénéficiaire)</Label>
+            <CurrencySelect
+              id="target_currency"
+              name="target_currency"
+              value={targetCurrency ?? ""}
+              onValueChange={(value) => setValue("target_currency", value)}
+            />
+            {errors.target_currency && (
+              <p className="text-sm text-destructive">{errors.target_currency.message}</p>
+            )}
+          </div>
+
           {conversionPreview && (
             <div
               className={`rounded-md border px-3 py-2 text-sm ${
@@ -267,7 +306,7 @@ export function CreateTransferDialog({
                 </p>
               ) : conversionPreview === "missing_rate" ? (
                 <p>
-                  Aucun taux d&apos;envoi privé configuré pour la devise source {currency}.{" "}
+                  Aucun taux d&apos;envoi privé actif pour la paire {currency} → {targetCurrency}.{" "}
                   <Link href="/private-rates" target="_blank" className="underline">
                     Configurez-le depuis la page Taux d&apos;envoi
                   </Link>{" "}

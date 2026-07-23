@@ -61,7 +61,7 @@ export default async function TransferDetailPage({
   const awaitingOtherParty = isPending && !isCounterparty;
   const canSeePrivateRate = transfer.company_id === me.company_id;
   const walletsForApproval = wallets.filter(
-    (wallet) => wallet.currency === collaboration.currency && wallet.status === "active"
+    (wallet) => wallet.currency === transfer.target_currency && wallet.status === "active"
   );
   const usedWallet = transfer.wallet_id ? wallets.find((wallet) => wallet.id === transfer.wallet_id) : undefined;
   // Ne pas proposer de lien vers un client/wallet si l'utilisateur n'a pas la permission de
@@ -136,8 +136,8 @@ export default async function TransferDetailPage({
               <AmountDisplay value={transfer.amount} currency={transfer.currency} size="md" />
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Montant converti</span>
-              <AmountDisplay value={transfer.converted_amount} currency={collaboration.currency} size="md" />
+              <span className="text-muted-foreground">Montant versé au bénéficiaire</span>
+              <AmountDisplay value={transfer.converted_amount} currency={transfer.target_currency} size="md" />
             </div>
             {canSeePrivateRate && transfer.private_rate_used && (
               <div className="flex justify-between">

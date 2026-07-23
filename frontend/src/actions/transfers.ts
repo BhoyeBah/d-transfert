@@ -24,6 +24,7 @@ export async function createTransferAction(
         entry_id: parsed.data.entry_id || null,
         amount: String(parsed.data.amount),
         currency: parsed.data.currency,
+        target_currency: parsed.data.target_currency || null,
         beneficiary_name: parsed.data.beneficiary_name || null,
         beneficiary_phone: parsed.data.beneficiary_phone,
         send_mode: parsed.data.send_mode,
