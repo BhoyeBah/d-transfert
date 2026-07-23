@@ -15,9 +15,9 @@ import {
   type CreateTransferFormValues,
 } from "@/lib/validation/transfers";
 import { formatMoney } from "@/lib/format";
+import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import type { Collaboration, Entry, PrivateRate } from "@/types/api";
 import { Button } from "@/components/ui/button";
-import { CurrencySelect } from "@/components/currency-select";
 import {
   Dialog,
   DialogContent,
@@ -280,12 +280,21 @@ export function CreateTransferDialog({
 
           <div className="grid gap-1.5">
             <Label htmlFor="target_currency">Devise de destination (bénéficiaire)</Label>
-            <CurrencySelect
-              id="target_currency"
-              name="target_currency"
+            <Select
               value={targetCurrency ?? ""}
               onValueChange={(value) => setValue("target_currency", value)}
-            />
+            >
+              <SelectTrigger id="target_currency" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUPPORTED_CURRENCIES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {currency || "?"} → {code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {errors.target_currency && (
               <p className="text-sm text-destructive">{errors.target_currency.message}</p>
             )}
