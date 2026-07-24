@@ -21,6 +21,7 @@ import {
 import { CompanyStatusActions } from "../company-status-actions";
 import { CompanyDetailsForm } from "./company-details-form";
 import { DeleteCompanyButton } from "./delete-company-button";
+import { EditCompanyUserDialog } from "./edit-company-user-dialog";
 import { SubscriptionForm } from "./subscription-form";
 import { UserStatusActions } from "./user-status-actions";
 
@@ -127,7 +128,10 @@ export default async function AdminCompanyDetailPage({
                     <StatusBadge status={user.is_active ? "active" : "inactive"} />
                   </TableCell>
                   <TableCell>
-                    <UserStatusActions userId={user.id} companyId={company.id} isActive={user.is_active} />
+                    <div className="flex items-center gap-2">
+                      <EditCompanyUserDialog companyId={company.id} user={user} />
+                      <UserStatusActions userId={user.id} companyId={company.id} isActive={user.is_active} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

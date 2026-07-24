@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api-error";
 import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import type { ActionState } from "@/lib/action-state";
 import type { MutationResult } from "@/lib/mutation-result";
-import { createPlatformAdminSchema, updatePlatformAdminSchema } from "@/lib/validation/admin";
+import { createPlatformAdminSchema, updateCompanyUserSchema, updatePlatformAdminSchema } from "@/lib/validation/admin";
 import { createRegisterSchema } from "@/lib/validation/auth";
 import type {
   AdminBackupAction,
@@ -169,6 +169,29 @@ export async function updatePlatformAdminAction(
     return { ok: false, message: "Impossible de contacter le serveur." };
   }
   revalidatePath("/admin/platform-admins");
+  return { ok: true, data: undefined };
+}
+
+export async function updateCompanyUserAction(
+  companyId: string,
+  userId: string,
+  payload: { full_name?: string; phone?: string; password?: string }
+): Promise<MutationResult> {
+  const parsed = updateCompanyUserSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  }
+
+  try {
+    await serverFetch(`/api/v1/admin/companies/${companyId}/users/${userId}`, {
+      method: "PATCH",
+      body: parsed.data,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true, data: undefined };
 }
 
