@@ -44,7 +44,7 @@ export function NotificationsProvider({
     source.onmessage = (event) => {
       const notification = JSON.parse(event.data) as NotificationItem;
       setUnreadCount((count) => count + 1);
-      toast.info(notification.message);
+      toast.info(notification.message, { duration: 5000 });
     };
 
     // EventSource se reconnecte automatiquement après une coupure (comportement natif du
