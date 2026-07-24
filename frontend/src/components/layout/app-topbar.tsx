@@ -61,10 +61,12 @@ export function AppTopbar({
             <span className="sr-only">Ouvrir le menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-64 bg-sidebar p-0 text-sidebar-foreground">
+        <SheetContent side="left" className="w-64 gap-0 bg-sidebar p-0 text-sidebar-foreground">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <div className="flex h-16 items-center border-b border-sidebar-border px-4 text-sm font-semibold">D-Transfert</div>
-          <SidebarNav items={navItems} />
+          <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4 text-sm font-semibold">D-Transfert</div>
+          <div className="min-h-0 flex-1 overflow-y-auto py-2">
+            <SidebarNav items={navItems} />
+          </div>
         </SheetContent>
       </Sheet>
 
