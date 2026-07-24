@@ -26,17 +26,21 @@ export default async function NotificationsPage() {
         <div className="flex flex-col gap-2">
           {notifications.map((notification) => (
             <Card key={notification.id} className={notification.is_read ? "opacity-60" : undefined}>
-              <CardContent className="flex items-center justify-between gap-4 px-4 py-3">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    {!notification.is_read && <Badge>Nouveau</Badge>}
+              <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex items-start gap-2">
+                    {!notification.is_read && <Badge className="mt-0.5 shrink-0">Nouveau</Badge>}
                     <span className="text-sm">{notification.message}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(notification.created_at)}
                   </span>
                 </div>
-                {!notification.is_read && <MarkNotificationReadButton notificationId={notification.id} />}
+                {!notification.is_read && (
+                  <div className="self-start sm:self-auto">
+                    <MarkNotificationReadButton notificationId={notification.id} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
