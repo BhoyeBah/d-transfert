@@ -11,6 +11,30 @@ type NotificationsContextValue = {
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
+// Bip synthétisé (Web Audio API) plutôt qu'un fichier audio embarqué : pas d'asset à charger,
+// pas de problème de licence. Volontairement discret (gain faible, décroissance rapide).
+function playNotificationSound() {
+  try {
+    const AudioContextClass =
+      window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioContextClass();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.3);
+    oscillator.onended = () => ctx.close();
+  } catch {
+    // Lecture audio indisponible (bloquée par le navigateur, pas d'interaction utilisateur
+    // encore enregistrée, etc.) : ne doit jamais empêcher l'affichage de la notification.
+  }
+}
+
 /**
  * Pousse les notifications au fil de l'eau (SSE) plutôt que d'attendre que l'utilisateur
  * rafraîchisse la page. `initialUnreadCount` vient du rendu serveur (source de vérité au
@@ -45,6 +69,7 @@ export function NotificationsProvider({
       const notification = JSON.parse(event.data) as NotificationItem;
       setUnreadCount((count) => count + 1);
       toast.info(notification.message, { duration: 5000 });
+      playNotificationSound();
     };
 
     // EventSource se reconnecte automatiquement après une coupure (comportement natif du
