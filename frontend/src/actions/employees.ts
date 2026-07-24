@@ -6,7 +6,7 @@ import { serverFetch } from "@/lib/api";
 import { ApiError } from "@/lib/api-error";
 import type { ActionState } from "@/lib/action-state";
 import type { MutationResult } from "@/lib/mutation-result";
-import { createEmployeeSchema } from "@/lib/validation/employees";
+import { createEmployeeSchema, updateEmployeeSchema } from "@/lib/validation/employees";
 import type { Employee } from "@/types/api";
 
 export async function createEmployeeAction(
@@ -65,6 +65,39 @@ export async function setEmployeeStatusAction(employeeId: string, isActive: bool
       method: "PATCH",
       body: { is_active: isActive },
     });
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+  revalidatePath("/employees");
+  return { ok: true, data: undefined };
+}
+
+export async function updateEmployeeAction(
+  employeeId: string,
+  payload: { full_name?: string; phone?: string; password?: string }
+): Promise<MutationResult<Employee>> {
+  const parsed = updateEmployeeSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  }
+
+  try {
+    const employee = await serverFetch<Employee>(`/api/v1/employees/${employeeId}`, {
+      method: "PATCH",
+      body: parsed.data,
+    });
+    revalidatePath("/employees");
+    return { ok: true, data: employee };
+  } catch (error) {
+    if (error instanceof ApiError) return { ok: false, message: error.message };
+    return { ok: false, message: "Impossible de contacter le serveur." };
+  }
+}
+
+export async function deleteEmployeeAction(employeeId: string): Promise<MutationResult> {
+  try {
+    await serverFetch(`/api/v1/employees/${employeeId}`, { method: "DELETE" });
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, message: error.message };
     return { ok: false, message: "Impossible de contacter le serveur." };

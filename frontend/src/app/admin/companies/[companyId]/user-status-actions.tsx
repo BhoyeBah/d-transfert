@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { BanIcon, CircleArrowUpIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { setAdminUserStatusAction } from "@/actions/admin";
@@ -21,8 +22,11 @@ export function UserStatusActions({
     <Button
       type="button"
       variant="outline"
-      size="sm"
+      size="icon"
+      className="size-8"
       disabled={isPending}
+      title={isActive ? "Suspendre" : "Réactiver"}
+      aria-label={isActive ? "Suspendre" : "Réactiver"}
       onClick={() =>
         startTransition(async () => {
           const result = await setAdminUserStatusAction(userId, companyId, !isActive);
@@ -34,7 +38,8 @@ export function UserStatusActions({
         })
       }
     >
-      {isActive ? "Suspendre" : "Réactiver"}
+      {isActive ? <BanIcon className="size-4" /> : <CircleArrowUpIcon className="size-4" />}
+      <span className="sr-only">{isActive ? "Suspendre" : "Réactiver"}</span>
     </Button>
   );
 }

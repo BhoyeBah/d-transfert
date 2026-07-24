@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Banknote, Landmark, Smartphone, Wallet as WalletIcon, type LucideIcon } from "lucide-react";
 
 import { getCompanyMe } from "@/lib/data/company";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { listWalletsPage } from "@/lib/data/wallets";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { walletTypeLabels } from "@/lib/validation/wallets";
@@ -33,9 +34,10 @@ export default async function WalletsPage({
   searchParams: Promise<DataTableSearchParams>;
 }) {
   const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
-  const [walletsPage, company] = await Promise.all([
+  const [walletsPage, company, settings] = await Promise.all([
     listWalletsPage({ page, search, sortBy, sortDir }),
     getCompanyMe(),
+    getPublicPlatformSettings(),
   ]);
   const wallets = walletsPage.items;
 
@@ -44,7 +46,12 @@ export default async function WalletsPage({
       <PageHeader
         title="Wallets"
         description="Comptes de trésorerie de votre entreprise."
-        action={<CreateWalletDialog defaultCurrency={company.default_currency} />}
+        action={
+          <CreateWalletDialog
+            defaultCurrency={company.default_currency}
+            supportedCurrencies={settings.supported_currencies}
+          />
+        }
       />
 
       {walletsPage.total === 0 && !search ? (
@@ -52,7 +59,12 @@ export default async function WalletsPage({
           icon={WalletIcon}
           title="Aucun wallet"
           message="Créez votre premier wallet (cash, mobile money, banque) pour commencer à enregistrer vos opérations."
-          action={<CreateWalletDialog defaultCurrency={company.default_currency} />}
+          action={
+            <CreateWalletDialog
+              defaultCurrency={company.default_currency}
+              supportedCurrencies={settings.supported_currencies}
+            />
+          }
         />
       ) : (
         <div className="flex flex-col gap-4">

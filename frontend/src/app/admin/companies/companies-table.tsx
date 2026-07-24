@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CompanyStatusActions } from "./company-status-actions";
+import { DeleteCompanyButton } from "./[companyId]/delete-company-button";
 
 export function CompaniesTable({
   companies,
@@ -58,7 +59,10 @@ export function CompaniesTable({
               <StatusBadge status={company.status} />
             </TableCell>
             <TableCell>
-              <CompanyStatusActions companyId={company.id} status={company.status} />
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <CompanyStatusActions companyId={company.id} status={company.status} />
+                <DeleteCompanyButton companyId={company.id} companyName={company.name} compact />
+              </div>
             </TableCell>
           </TableRow>
         ))}

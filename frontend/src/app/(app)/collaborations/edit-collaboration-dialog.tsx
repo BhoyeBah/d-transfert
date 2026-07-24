@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { updateCollaborationAction } from "@/actions/collaborations";
+import { mergeCurrencies } from "@/lib/currencies";
 import type { Collaboration } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { CurrencySelect } from "@/components/currency-select";
@@ -22,14 +23,17 @@ import { Label } from "@/components/ui/label";
 export function EditCollaborationDialog({
   collaboration,
   size = "sm",
+  supportedCurrencies,
 }: {
   collaboration: Collaboration;
   size?: "sm" | "default";
+  supportedCurrencies: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [currency, setCurrency] = useState(collaboration.currency);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const currencies = mergeCurrencies(supportedCurrencies, collaboration.currency);
 
   function submit(formData: FormData) {
     const initialRate = formData.get("initial_rate");
@@ -65,7 +69,13 @@ export function EditCollaborationDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="edit_currency">Devise</Label>
-              <CurrencySelect id="edit_currency" name="currency" value={currency} onValueChange={setCurrency} />
+              <CurrencySelect
+                id="edit_currency"
+                name="currency"
+                value={currency}
+                onValueChange={setCurrency}
+                currencies={currencies}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="initial_rate">Taux collaboratif</Label>

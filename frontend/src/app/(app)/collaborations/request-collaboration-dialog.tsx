@@ -3,13 +3,21 @@
 import { useState } from "react";
 
 import { requestCollaborationAction } from "@/actions/collaborations";
+import { mergeCurrencies } from "@/lib/currencies";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function RequestCollaborationDialog({ defaultCurrency }: { defaultCurrency: string }) {
+export function RequestCollaborationDialog({
+  defaultCurrency,
+  supportedCurrencies,
+}: {
+  defaultCurrency: string;
+  supportedCurrencies: string[];
+}) {
   const [currency, setCurrency] = useState(defaultCurrency);
+  const currencies = mergeCurrencies(supportedCurrencies, defaultCurrency);
 
   return (
     <CreateEntityDialog
@@ -31,7 +39,13 @@ export function RequestCollaborationDialog({ defaultCurrency }: { defaultCurrenc
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise de la collaboration</Label>
-              <CurrencySelect id="currency" name="currency" value={currency} onValueChange={setCurrency} />
+              <CurrencySelect
+                id="currency"
+                name="currency"
+                value={currency}
+                onValueChange={setCurrency}
+                currencies={currencies}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="initial_rate">Taux collaboratif initial</Label>

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  ArrowRight,
   ArrowLeftRight,
   Building2,
   Clock,
   HandCoins,
+  Plus,
   ScrollText,
   Truck,
   Users,
@@ -17,6 +19,7 @@ import { PageHeader } from "@/components/page-header";
 import { getDashboard } from "@/lib/data/dashboard";
 import { getMe } from "@/lib/data/me";
 import { formatMoney } from "@/lib/format";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -27,6 +30,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatTile } from "@/components/stat-tile";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { title: "Tableau de bord — D-Transfert" };
 
@@ -38,7 +43,10 @@ export default async function DashboardPage() {
 
   const dashboard = await getDashboard();
   const walletCurrencies = Object.entries(dashboard.wallets_balance_by_currency);
-  const totalAlerts = dashboard.transfers_pending_count + dashboard.payments_pending_count;
+  const pendingCount = dashboard.transfers_pending_count + dashboard.payments_pending_count;
+  const canCreateEntry = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
+  const canCreateTransfer = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.TRANSFER_CREATE);
+  const canCreatePayment = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.PAYMENT_CREATE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,34 +55,27 @@ export default async function DashboardPage() {
         title="Tableau de bord"
         description="Surveillez en un coup d'œil les soldes, les flux du jour et les alertes qui méritent une action."
         action={
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-left">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                Alertes
-              </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums">{totalAlerts}</div>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-left">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                Envois
-              </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums">
-                {dashboard.transfers_today_count}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-left">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                Paiements
-              </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums">
-                {dashboard.payments_pending_count}
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {canCreateEntry && (
+              <Button variant="outline" asChild>
+                <Link href="/entries"><Plus /> Nouvelle entrée</Link>
+              </Button>
+            )}
+            {canCreateTransfer && (
+              <Button variant="outline" asChild>
+                <Link href="/transfers"><ArrowLeftRight /> Nouvel envoi</Link>
+              </Button>
+            )}
+            {canCreatePayment && (
+              <Button asChild>
+                <Link href="/payments"><HandCoins /> Nouveau paiement</Link>
+              </Button>
+            )}
           </div>
         }
       />
 
-      <section className="grid gap-4 rounded-3xl border border-border/70 bg-card/70 p-5 shadow-sm backdrop-blur sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Situation financière" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {walletCurrencies.length > 0 ? (
           walletCurrencies.map(([currency, balance]) => (
             <StatTile
@@ -87,7 +88,7 @@ export default async function DashboardPage() {
         ) : (
           <StatTile label="Solde wallets" value="—" icon={Wallet} hint="Aucun wallet créé" />
         )}
-        <StatTile label="Entrées aujourd'hui" value={dashboard.entries_today_count} icon={ScrollText} />
+        <StatTile label="Entrées aujourd'hui" value={dashboard.entries_today_count} icon={ScrollText} hint="flux enregistrés" />
         <StatTile
           label="Opérations nationales"
           value={dashboard.national_operations_today_count}
@@ -101,7 +102,7 @@ export default async function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Activité du jour" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           label="Envois aujourd'hui"
           value={dashboard.transfers_today_count}
@@ -131,9 +132,39 @@ export default async function DashboardPage() {
         />
       </section>
 
+      {(pendingCount > 0 || dashboard.alerts.length > 0) && (
+        <Card className="gap-0 overflow-hidden border-warning/25 py-0">
+          <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                <Clock className="size-4" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">Actions requises</p>
+                  <Badge variant="warning">{pendingCount} en attente</Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Des opérations attendent une validation ou une vérification de votre équipe.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/transfers">Examiner les opérations <ArrowRight /></Link>
+            </Button>
+          </div>
+          {dashboard.alerts.length > 0 && (
+            <div className="border-t border-warning/15 bg-warning/[0.035] px-5 py-3">
+              {dashboard.alerts.slice(0, 3).map((alert) => (
+                <p key={alert.message} className="text-xs leading-5 text-muted-foreground">{alert.message}</p>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-        <Card className="overflow-hidden border-border/70 bg-card/85 shadow-sm backdrop-blur">
-          <div className="h-1 bg-gradient-to-r from-primary via-cyan-400 to-emerald-400" />
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Solde par collaborateur</CardTitle>
           </CardHeader>

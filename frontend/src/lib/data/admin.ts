@@ -3,6 +3,7 @@ import "server-only";
 import { serverFetch } from "@/lib/api";
 import { buildPageQuery, type DataTableParams } from "@/lib/data-table";
 import type {
+  AdminBackup,
   AdminCompanyDetail,
   AdminPlatformStats,
   AdminUser,
@@ -61,6 +62,10 @@ export async function listAdminSystemLogsPage(params: DataTableParams): Promise<
 
 export async function getAdminSettings(): Promise<PlatformSettings> {
   return serverFetch<PlatformSettings>("/api/v1/admin/settings");
+}
+
+export async function listAdminBackups(): Promise<AdminBackup[]> {
+  return serverFetch<AdminBackup[]>("/api/v1/admin/backups");
 }
 
 export async function getAdminSubscription(companyId: string): Promise<Subscription> {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getCompanyMe } from "@/lib/data/company";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { getMe } from "@/lib/data/me";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -12,7 +13,11 @@ import { CompanyForm } from "./company-form";
 export const metadata: Metadata = { title: "Entreprise — D-Transfert" };
 
 export default async function CompanyPage() {
-  const [company, me] = await Promise.all([getCompanyMe(), getMe()]);
+  const [company, me, settings] = await Promise.all([
+    getCompanyMe(),
+    getMe(),
+    getPublicPlatformSettings(),
+  ]);
   if (me.is_super_admin) {
     redirect("/admin");
   }
@@ -57,7 +62,7 @@ export default async function CompanyPage() {
         {me.is_owner ? (
           <Card>
             <CardContent className="p-6">
-              <CompanyForm company={company} />
+              <CompanyForm company={company} supportedCurrencies={settings.supported_currencies} />
             </CardContent>
           </Card>
         ) : (

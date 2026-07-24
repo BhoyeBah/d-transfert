@@ -57,15 +57,16 @@ export default async function TransfersPage({
 }) {
   const rawParams = await searchParams;
   const { page, search, sortBy, sortDir } = parseDataTableParams(rawParams);
-  const [transfersPage, allTransfers, collaborations, entries, privateRates, wallets, me] = await Promise.all([
-    listTransfersPage({ page, search, sortBy, sortDir }),
-    listTransfers(),
-    orEmptyOn403(listCollaborations()),
-    orEmptyOn403(listEntries()),
-    orEmptyOn403(listPrivateRates()),
-    orEmptyOn403(listWallets()),
-    getMe(),
-  ]);
+  const [transfersPage, allTransfers, collaborations, entries, privateRates, wallets, me] =
+    await Promise.all([
+      listTransfersPage({ page, search, sortBy, sortDir }),
+      listTransfers(),
+      orEmptyOn403(listCollaborations()),
+      orEmptyOn403(listEntries()),
+      orEmptyOn403(listPrivateRates()),
+      orEmptyOn403(listWallets()),
+      getMe(),
+    ]);
   const transfers = transfersPage.items;
   const entryReferenceById = new Map(entries.map((entry) => [entry.id, entry.reference]));
   const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");

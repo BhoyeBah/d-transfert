@@ -21,6 +21,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import type { NavIconName, NavItem } from "@/lib/nav";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ICONS: Record<NavIconName, LucideIcon> = {
   dashboard: LayoutDashboard,
@@ -38,36 +39,77 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   percent: Percent,
 };
 
-export function SidebarNav({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
+const GROUPS = [
+  { label: "Vue d'ensemble", paths: ["/dashboard"] },
+  { label: "Opérations", paths: ["/wallets", "/national-operations", "/entries", "/transfers", "/payments"] },
+  { label: "Relations", paths: ["/collaborations", "/private-rates", "/clients", "/suppliers"] },
+  { label: "Pilotage", paths: ["/reports", "/employees", "/company"] },
+] as const;
+
+export function SidebarNav({
+  items,
+  onNavigate,
+  collapsed = false,
+}: {
+  items: NavItem[];
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-1 px-3">
-      {items.map((item) => {
-        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-        const Icon = ICONS[item.icon];
+    <nav className={cn("flex flex-col px-3", collapsed ? "gap-2" : "gap-5")} aria-label="Navigation principale">
+      {GROUPS.map((group) => {
+        const groupItems = group.paths
+          .map((path) => items.find((item) => item.href === path))
+          .filter((item): item is NavItem => Boolean(item));
+
+        if (groupItems.length === 0) return null;
+
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              "group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200",
-              isActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm ring-1 ring-sidebar-border/70"
-                : "text-sidebar-foreground/72 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-xl border border-transparent bg-sidebar-accent/40 text-sidebar-foreground/70 transition-colors",
-                isActive && "border-sidebar-border/70 bg-sidebar-primary/15 text-sidebar-primary"
-              )}
-            >
-              <Icon className="size-4" />
-            </span>
-            <span className="truncate">{item.label}</span>
-          </Link>
+          <div key={group.label} className={cn("flex flex-col gap-1", collapsed && "border-b border-sidebar-border/60 pb-2 last:border-0")}>
+            <p className={cn("px-3 pb-1 text-[9px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/35", collapsed && "sr-only")}>
+              {group.label}
+            </p>
+            {groupItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const Icon = ICONS[item.icon];
+              const link = (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  aria-label={collapsed ? item.label : undefined}
+                  className={cn(
+                    "group relative flex items-center rounded-lg py-2.5 text-[13px] font-medium transition-colors duration-150",
+                    collapsed ? "justify-center px-2" : "gap-3 px-3",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/55 hover:text-sidebar-foreground"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-7 shrink-0 items-center justify-center text-sidebar-foreground/55 transition-colors",
+                      isActive && "text-sidebar-primary"
+                    )}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </Link>
+              );
+
+              if (!collapsed) return link;
+
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>{link}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={10}>{item.label}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
         );
       })}
     </nav>

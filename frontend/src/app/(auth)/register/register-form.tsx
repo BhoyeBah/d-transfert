@@ -8,7 +8,7 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { registerAction, type RegisterActionState } from "@/actions/auth";
 import { initialActionState } from "@/lib/action-state";
 import { isStaleServerActionError, recoverFromStaleServerAction } from "@/lib/server-action-recovery";
-import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
+import { CurrencySelect } from "@/components/currency-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,19 +20,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
-export function RegisterForm() {
+export function RegisterForm({ supportedCurrencies }: { supportedCurrencies: string[] }) {
   const router = useRouter();
   const [state, setState] = useState<RegisterActionState>(initialActionState);
   const [isPending, startTransition] = useTransition();
-  const [currency, setCurrency] = useState<string>(SUPPORTED_CURRENCIES[0]);
+  const [currency, setCurrency] = useState<string>(supportedCurrencies[0] ?? "XOF");
   const [copied, setCopied] = useState(false);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -104,19 +97,13 @@ export function RegisterForm() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="default_currency">Devise par défaut</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="default_currency" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SUPPORTED_CURRENCIES.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <input type="hidden" name="default_currency" value={currency} />
+            <CurrencySelect
+              id="default_currency"
+              name="default_currency"
+              value={currency}
+              onValueChange={setCurrency}
+              currencies={supportedCurrencies}
+            />
           </div>
         </div>
 

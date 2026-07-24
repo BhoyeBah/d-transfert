@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { createPrivateRateAction } from "@/actions/private-rates";
+import { mergeCurrencies } from "@/lib/currencies";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import { CurrencySelect } from "@/components/currency-select";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import { SEND_MODES, sendModeLabels } from "@/lib/validation/transfers";
 import type { Collaboration } from "@/types/api";
 
@@ -23,14 +23,17 @@ const ALL_COLLABORATORS = "all";
 export function CreatePrivateRateDialog({
   defaultCurrency,
   collaborations = [],
+  supportedCurrencies,
 }: {
   defaultCurrency: string;
   collaborations?: Collaboration[];
+  supportedCurrencies: string[];
 }) {
   const [currency, setCurrency] = useState(defaultCurrency);
   const [targetCurrency, setTargetCurrency] = useState(defaultCurrency);
   const [collaborationId, setCollaborationId] = useState(ALL_COLLABORATORS);
   const [operationType, setOperationType] = useState<string>("");
+  const currencies = mergeCurrencies(supportedCurrencies, defaultCurrency);
 
   const scopedCollaboration = collaborations.find((c) => c.id === collaborationId);
   // La devise de destination d'un envoi est choisie librement à chaque envoi (indépendante de
@@ -71,7 +74,13 @@ export function CreatePrivateRateDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise source</Label>
-              <CurrencySelect id="currency" name="currency" value={currency} onValueChange={setCurrency} />
+              <CurrencySelect
+                id="currency"
+                name="currency"
+                value={currency}
+                onValueChange={setCurrency}
+                currencies={currencies}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="target_currency">Devise cible</Label>
@@ -80,7 +89,7 @@ export function CreatePrivateRateDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUPPORTED_CURRENCIES.map((code) => (
+                  {currencies.map((code) => (
                     <SelectItem key={code} value={code}>
                       {currency} → {code}
                     </SelectItem>

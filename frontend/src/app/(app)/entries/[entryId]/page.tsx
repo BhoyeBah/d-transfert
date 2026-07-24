@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftIcon, ArrowLeftRight, HandCoins, Layers3 } from "lucide-react";
 
-import { ApiError } from "@/lib/api-error";
 import { getEntry, listEntries } from "@/lib/data/entries";
-import { listWallets } from "@/lib/data/wallets";
+import { listWalletOptions } from "@/lib/data/wallets";
+import { getMe } from "@/lib/data/me";
+import { hasPermission, PermissionCode } from "@/lib/permissions";
 import { formatDate, formatMoney } from "@/lib/format";
 import { EmptyState } from "@/components/empty-state";
 import { MergeSameClientEntriesCard } from "@/components/merge-same-client-entries-card";
@@ -25,27 +26,21 @@ export const metadata: Metadata = { title: "Détail entrée — D-Transfert" };
 
 const CANCELLABLE_STATUSES = new Set(["unallocated"]);
 
-// wallet.manage n'est pas garanti pour tous les utilisateurs pouvant voir une entrée
-// (transfer.create / payment.create / operation.validate) — le nom du wallet n'est qu'un
-// affichage optionnel (déjà dégradé en identifiant brut ci-dessous), donc on dégrade en liste
-// vide plutôt que de faire planter la page.
-async function orEmptyOn403<T>(promise: Promise<T[]>): Promise<T[]> {
-  try {
-    return await promise;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 403) return [];
-    throw error;
-  }
-}
-
 export default async function EntryDetailPage({ params }: { params: Promise<{ entryId: string }> }) {
   const { entryId } = await params;
-  const [entry, allEntries, wallets] = await Promise.all([
+  const [entry, allEntries, wallets, me] = await Promise.all([
     getEntry(entryId),
     listEntries(),
-    orEmptyOn403(listWallets()),
+    listWalletOptions(),
+    getMe(),
   ]);
   const walletNameById = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
+  const canViewWallets = hasPermission(
+    me.permissions,
+    me.is_owner,
+    me.is_super_admin,
+    PermissionCode.WALLET_MANAGE
+  );
   const sameClientEntries = allEntries.filter(
     (candidate) =>
       candidate.id !== entry.id &&
@@ -128,10 +123,12 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
                 {entry.lines.map((line, index) => (
                   <TableRow key={index}>
                     <TableCell>
-                      {walletNameById.has(line.wallet_id) ? (
+                      {walletNameById.has(line.wallet_id) && canViewWallets ? (
                         <Link href={`/wallets/${line.wallet_id}`} className="hover:underline">
                           {walletNameById.get(line.wallet_id)}
                         </Link>
+                      ) : walletNameById.has(line.wallet_id) ? (
+                        walletNameById.get(line.wallet_id)
                       ) : (
                         line.wallet_id.slice(0, 8)
                       )}

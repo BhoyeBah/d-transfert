@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { getAdminCompanyDetail, getAdminSubscription, listAdminCompanyUsers } from "@/lib/data/admin";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { formatDate, formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { StatTile } from "@/components/stat-tile";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { CompanyStatusActions } from "../company-status-actions";
 import { CompanyDetailsForm } from "./company-details-form";
+import { DeleteCompanyButton } from "./delete-company-button";
 import { SubscriptionForm } from "./subscription-form";
 import { UserStatusActions } from "./user-status-actions";
 
@@ -35,6 +37,7 @@ export default async function AdminCompanyDetailPage({
     listAdminCompanyUsers(companyId),
     getAdminSubscription(companyId),
   ]);
+  const { supported_currencies } = await getPublicPlatformSettings();
   const balanceEntries = Object.entries(company.wallets_balance_by_currency);
 
   return (
@@ -50,9 +53,10 @@ export default async function AdminCompanyDetailPage({
           title={company.name}
           description={`${company.registration_code} · ${company.phone} · ${company.default_currency} · créée le ${formatDate(company.created_at)}`}
           action={
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={company.status} />
               <CompanyStatusActions companyId={company.id} status={company.status} />
+              <DeleteCompanyButton companyId={company.id} companyName={company.name} />
             </div>
           }
         />
@@ -73,7 +77,7 @@ export default async function AdminCompanyDetailPage({
           <CardTitle>Informations de l&apos;entreprise</CardTitle>
         </CardHeader>
         <CardContent>
-          <CompanyDetailsForm company={company} />
+          <CompanyDetailsForm company={company} supportedCurrencies={supported_currencies} />
         </CardContent>
       </Card>
 

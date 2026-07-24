@@ -5,6 +5,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { getCollaboration, getCollaboratorBalance, getRateHistory } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
 import { listPrivateRates } from "@/lib/data/private-rates";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { formatDate, formatMoney } from "@/lib/format";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { Button } from "@/components/ui/button";
@@ -35,10 +36,11 @@ export default async function CollaborationDetailPage({
   params: Promise<{ collaborationId: string }>;
 }) {
   const { collaborationId } = await params;
-  const [collaboration, rateHistory, me] = await Promise.all([
+  const [collaboration, rateHistory, me, settings] = await Promise.all([
     getCollaboration(collaborationId),
     getRateHistory(collaborationId),
     getMe(),
+    getPublicPlatformSettings(),
   ]);
 
   const balance = collaboration.status === "accepted" ? await getCollaboratorBalance(collaborationId) : null;
@@ -85,7 +87,10 @@ export default async function CollaborationDetailPage({
             )}
             {collaboration.status === "pending" && !isTarget && (
               <>
-                <EditCollaborationDialog collaboration={collaboration} />
+                <EditCollaborationDialog
+                  collaboration={collaboration}
+                  supportedCurrencies={settings.supported_currencies}
+                />
                 <CancelCollaborationButton collaborationId={collaboration.id} />
               </>
             )}

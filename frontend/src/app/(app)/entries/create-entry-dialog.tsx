@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { createEntryAction } from "@/actions/entries";
 import { createEntrySchema, type EntryFormValues } from "@/lib/validation/entries";
-import type { Wallet } from "@/types/api";
+import type { WalletOption } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function CreateEntryDialog({ wallets }: { wallets: Wallet[] }) {
+export function CreateEntryDialog({ wallets }: { wallets: WalletOption[] }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 

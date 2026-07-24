@@ -4,13 +4,20 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { updateAdminCompanyAction } from "@/actions/admin";
+import { mergeCurrencies } from "@/lib/currencies";
 import type { AdminCompanyDetail } from "@/types/api";
 import { CurrencySelect } from "@/components/currency-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function CompanyDetailsForm({ company }: { company: AdminCompanyDetail }) {
+export function CompanyDetailsForm({
+  company,
+  supportedCurrencies,
+}: {
+  company: AdminCompanyDetail;
+  supportedCurrencies: string[];
+}) {
   const [isPending, startTransition] = useTransition();
   const [currency, setCurrency] = useState(company.default_currency);
 
@@ -52,7 +59,13 @@ export function CompanyDetailsForm({ company }: { company: AdminCompanyDetail })
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="default_currency">Devise par défaut</Label>
-          <CurrencySelect id="default_currency" name="default_currency" value={currency} onValueChange={setCurrency} />
+          <CurrencySelect
+            id="default_currency"
+            name="default_currency"
+            value={currency}
+            onValueChange={setCurrency}
+            currencies={mergeCurrencies(supportedCurrencies, company.default_currency)}
+          />
         </div>
       </div>
       <div className="flex justify-end pt-2">

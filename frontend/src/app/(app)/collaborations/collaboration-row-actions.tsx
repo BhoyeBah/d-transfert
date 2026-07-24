@@ -14,9 +14,11 @@ import { EditCollaborationDialog } from "./edit-collaboration-dialog";
 export function CollaborationRowActions({
   collaboration,
   isTarget,
+  supportedCurrencies,
 }: {
   collaboration: Collaboration;
   isTarget: boolean;
+  supportedCurrencies: string[];
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -62,7 +64,7 @@ export function CollaborationRowActions({
       )}
       {collaboration.status === "pending" && !isTarget && (
         <>
-          <EditCollaborationDialog collaboration={collaboration} />
+          <EditCollaborationDialog collaboration={collaboration} supportedCurrencies={supportedCurrencies} />
           <CancelCollaborationButton collaborationId={collaboration.id} />
         </>
       )}

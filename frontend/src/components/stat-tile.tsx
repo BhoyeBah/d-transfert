@@ -17,16 +17,15 @@ export function StatTile({
   hint?: string;
 }) {
   return (
-    <Card className="group relative overflow-hidden border-border/70 bg-card/85 shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+    <Card className="group relative overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-primary/20 hover:shadow-[0_10px_30px_rgba(20,70,45,0.07)]">
       <CardContent className="flex items-start justify-between gap-4 p-5">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+          <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
             {label}
           </span>
           <span
             className={cn(
-              "text-2xl font-semibold tracking-tight tabular-nums sm:text-[1.75rem]",
+              "text-2xl font-semibold tracking-[-0.035em] tabular-nums sm:text-[1.75rem]",
               tone === "warning" && "text-warning",
               tone === "destructive" && "text-destructive",
               tone === "success" && "text-success"
@@ -39,7 +38,7 @@ export function StatTile({
         {Icon && (
           <div
             className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-accent/70 text-accent-foreground shadow-sm transition-transform group-hover:scale-105",
+              "flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-accent/70 text-accent-foreground transition-colors group-hover:bg-accent",
               tone === "warning" && "border-warning/20 bg-warning/10 text-warning",
               tone === "destructive" && "border-destructive/20 bg-destructive/10 text-destructive",
               tone === "success" && "border-success/20 bg-success/10 text-success"

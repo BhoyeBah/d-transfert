@@ -7,10 +7,14 @@ from app.core.database import get_db
 from app.core.exceptions import PermissionDeniedError
 from app.core.permissions import CurrentUser, get_current_user
 from app.schemas.admin import (
+    AdminBackupActionResponse,
+    AdminBackupResponse,
+    AdminBackupRestoreRequest,
     AdminCompanyDetailResponse,
     AdminPlatformStatsResponse,
     AdminUserResponse,
     AdminUserStatusUpdateRequest,
+    AdminUserUpdateRequest,
     PlatformAdminCreateRequest,
     PlatformSettingsResponse,
     PlatformSettingsUpdateRequest,
@@ -19,9 +23,15 @@ from app.schemas.admin import (
     SystemLogResponse,
 )
 from app.schemas.audit_log import AuditLogResponse
-from app.schemas.company import AdminCompanyStatusUpdateRequest, AdminCompanyUpdateRequest, CompanyMeResponse
+from app.schemas.auth import RegisterResponse
+from app.schemas.company import (
+    AdminCompanyCreateRequest,
+    AdminCompanyStatusUpdateRequest,
+    AdminCompanyUpdateRequest,
+    CompanyMeResponse,
+)
 from app.schemas.pagination import Page, PageParams, page_params
-from app.services import admin_service, audit_service
+from app.services import admin_service, audit_service, backup_service
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -60,6 +70,15 @@ async def list_companies_page(
     return Page(items=items, total=total, page=params.page, page_size=params.page_size)
 
 
+@router.post("/companies", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+async def create_company(
+    payload: AdminCompanyCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_require_super_admin),
+) -> RegisterResponse:
+    return await admin_service.create_company(db, current_user.id, payload)
+
+
 @router.get("/companies/{company_id}", response_model=AdminCompanyDetailResponse)
 async def get_company_detail(
     company_id: uuid.UUID,
@@ -91,6 +110,21 @@ async def update_company_status(
     return CompanyMeResponse.model_validate(company, from_attributes=True)
 
 
+@router.delete(
+    "/companies/{company_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Supprimer une entreprise et toutes ses données",
+)
+async def delete_company(
+    company_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_require_super_admin),
+) -> dict:
+    await admin_service.delete_company(db, current_user.id, company_id)
+    return {"detail": "Entreprise et toutes ses données supprimées avec succès.", "company_id": str(company_id)}
+
+
+
 @router.get("/companies/{company_id}/users", response_model=list[AdminUserResponse])
 async def list_company_users(
     company_id: uuid.UUID,
@@ -108,6 +142,25 @@ async def update_user_status(
     current_user: CurrentUser = Depends(_require_super_admin),
 ) -> AdminUserResponse:
     return await admin_service.set_user_status(db, current_user.id, user_id, payload.is_active)
+
+
+@router.patch("/platform-admins/{admin_id}", response_model=AdminUserResponse)
+async def update_platform_admin(
+    admin_id: uuid.UUID,
+    payload: AdminUserUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_require_super_admin),
+) -> AdminUserResponse:
+    return await admin_service.update_platform_admin(db, current_user.id, admin_id, payload)
+
+
+@router.delete("/platform-admins/{admin_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_platform_admin(
+    admin_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_require_super_admin),
+) -> None:
+    await admin_service.delete_platform_admin(db, current_user.id, admin_id)
 
 
 @router.get("/platform-admins", response_model=list[AdminUserResponse])
@@ -209,3 +262,27 @@ async def update_settings(
     current_user: CurrentUser = Depends(_require_super_admin),
 ) -> PlatformSettingsResponse:
     return await admin_service.update_settings(db, current_user.id, payload)
+
+
+@router.get("/backups", response_model=list[AdminBackupResponse])
+async def list_backups(
+    _current_user: CurrentUser = Depends(_require_super_admin),
+) -> list[AdminBackupResponse]:
+    return await backup_service.list_backups()
+
+
+@router.post("/backups", response_model=AdminBackupActionResponse, status_code=status.HTTP_201_CREATED)
+async def create_backup(
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_require_super_admin),
+) -> AdminBackupActionResponse:
+    return await backup_service.create_backup(db, current_user.id)
+
+
+@router.post("/backups/restore", response_model=AdminBackupActionResponse)
+async def restore_backup(
+    payload: AdminBackupRestoreRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_require_super_admin),
+) -> AdminBackupActionResponse:
+    return await backup_service.restore_backup(db, current_user.id, payload.filename)

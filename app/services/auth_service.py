@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, UnauthorizedError
+from app.core.exceptions import UnauthorizedError
 from app.core.security import (
     TokenType,
     create_access_token,
@@ -14,7 +14,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.company import Company, CompanyStatus
+from app.models.company import CompanyStatus
 from app.models.system_log import SystemLogLevel
 from app.models.user import User
 from app.repositories import (
@@ -26,70 +26,28 @@ from app.repositories import (
 )
 from app.schemas.auth import RegisterRequest, RegisterResponse
 from app.services import audit_service, system_log_service
-from app.utils.reference import generate_company_registration_code, slugify_company_name
-
+from app.services.company_service import create_company_with_owner
 logger = logging.getLogger("dtransfert.auth")
 
 MAX_FAILED_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
 OTP_EXPIRE_MINUTES = 10
 OTP_MAX_ATTEMPTS = 5
-REGISTRATION_CODE_MAX_RETRIES = 5
-
-
-async def _generate_registration_code(db: AsyncSession, company_name: str) -> str:
-    # Dérivé du nom d'entreprise (ex. "GK Business" -> "gk-business") pour rester facile à
-    # retenir et à retaper, plutôt qu'un code aléatoire. Suffixé si déjà pris, avec repli sur
-    # l'ancien format aléatoire si le nom ne produit aucun slug exploitable.
-    base_slug = slugify_company_name(company_name)
-    if base_slug:
-        if await company_repository.get_by_registration_code(db, base_slug) is None:
-            return base_slug
-        for suffix in range(2, REGISTRATION_CODE_MAX_RETRIES + 2):
-            candidate = f"{base_slug}-{suffix}"
-            if await company_repository.get_by_registration_code(db, candidate) is None:
-                return candidate
-
-    for _ in range(REGISTRATION_CODE_MAX_RETRIES):
-        candidate = generate_company_registration_code()
-        if await company_repository.get_by_registration_code(db, candidate) is None:
-            return candidate
-    raise ConflictError("Impossible de générer un matricule unique, réessayez.")
-
-
 async def register(db: AsyncSession, payload: RegisterRequest) -> RegisterResponse:
-    if await company_repository.get_by_phone(db, payload.company_phone) is not None:
-        raise ConflictError("Ce numéro de téléphone est déjà utilisé par une entreprise.")
-    if await company_repository.get_by_name(db, payload.company_name) is not None:
-        raise ConflictError("Ce nom d'entreprise est déjà utilisé.")
-
-    registration_code = await _generate_registration_code(db, payload.company_name)
-
     platform_setting = await platform_setting_repository.get(db)
+    if platform_setting is not None and platform_setting.maintenance_mode:
+        raise UnauthorizedError("La plateforme est en mode maintenance.")
     require_approval = platform_setting is not None and platform_setting.require_company_approval
-
-    company = Company(
-        name=payload.company_name,
-        registration_code=registration_code,
+    company, owner = await create_company_with_owner(
+        db,
+        company_name=payload.company_name,
+        company_phone=payload.company_phone,
         address=payload.address,
-        phone=payload.company_phone,
         default_currency=payload.default_currency,
+        owner_full_name=payload.owner_full_name,
+        password=payload.password,
         status=CompanyStatus.PENDING if require_approval else CompanyStatus.ACTIVE,
     )
-    db.add(company)
-    await db.flush()
-
-    owner = User(
-        company_id=company.id,
-        matricule=company.registration_code,
-        full_name=payload.owner_full_name,
-        phone=payload.company_phone,
-        password_hash=hash_password(payload.password),
-        is_owner=True,
-        is_active=True,
-    )
-    db.add(owner)
-    await db.flush()
     await db.commit()
 
     return RegisterResponse(
@@ -124,6 +82,9 @@ async def _ensure_company_active(db: AsyncSession, user: User) -> None:
 
 async def login(db: AsyncSession, matricule: str, password: str) -> tuple[str, str]:
     user = await _find_login_user(db, matricule)
+    platform_setting = await platform_setting_repository.get(db)
+    if platform_setting is not None and platform_setting.maintenance_mode and not user.is_super_admin:
+        raise UnauthorizedError("La plateforme est en mode maintenance.")
 
     if not user.is_super_admin:
         await _ensure_company_active(db, user)

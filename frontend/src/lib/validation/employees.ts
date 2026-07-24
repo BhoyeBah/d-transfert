@@ -10,3 +10,9 @@ export const createEmployeeSchema = z.object({
   password: z.string().min(8, "8 caractères minimum."),
   permissions: z.array(z.enum(permissionCodeValues, { message: "Permission invalide." })).default([]),
 });
+
+export const updateEmployeeSchema = z.object({
+  full_name: z.string().min(2, "2 caractères minimum.").max(255).optional(),
+  phone: z.string().min(6, "Numéro invalide.").max(32).optional(),
+  password: z.string().min(8, "8 caractères minimum.").optional(),
+});

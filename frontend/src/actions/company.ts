@@ -4,15 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import { serverFetch } from "@/lib/api";
 import { ApiError } from "@/lib/api-error";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import type { ActionState } from "@/lib/action-state";
-import { updateCompanySchema } from "@/lib/validation/company";
+import { createUpdateCompanySchema } from "@/lib/validation/company";
 import type { CompanyMe } from "@/types/api";
 
 export async function updateCompanyAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const parsed = updateCompanySchema.safeParse({
+  const { supported_currencies } = await getPublicPlatformSettings();
+  const parsed = createUpdateCompanySchema(supported_currencies).safeParse({
     name: formData.get("name"),
     address: formData.get("address"),
     phone: formData.get("phone"),

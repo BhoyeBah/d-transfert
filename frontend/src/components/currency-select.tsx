@@ -1,6 +1,5 @@
 "use client";
 
-import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import {
   Select,
   SelectContent,
@@ -14,10 +13,12 @@ export function CurrencySelect({
   value,
   onValueChange,
   id,
+  currencies,
 }: {
   name: string;
   value: string;
   onValueChange: (value: string) => void;
+  currencies: string[];
   id?: string;
 }) {
   return (
@@ -27,7 +28,7 @@ export function CurrencySelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {SUPPORTED_CURRENCIES.map((code) => (
+          {currencies.map((code) => (
             <SelectItem key={code} value={code}>
               {code}
             </SelectItem>

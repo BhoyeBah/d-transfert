@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { createWalletAction } from "@/actions/wallets";
+import { mergeCurrencies } from "@/lib/currencies";
 import { WALLET_TYPES, walletTypeLabels } from "@/lib/validation/wallets";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import { CurrencySelect } from "@/components/currency-select";
@@ -16,9 +17,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function CreateWalletDialog({ defaultCurrency }: { defaultCurrency: string }) {
+export function CreateWalletDialog({
+  defaultCurrency,
+  supportedCurrencies,
+}: {
+  defaultCurrency: string;
+  supportedCurrencies: string[];
+}) {
   const [currency, setCurrency] = useState(defaultCurrency);
   const [type, setType] = useState<(typeof WALLET_TYPES)[number]>("cash");
+  const currencies = mergeCurrencies(supportedCurrencies, defaultCurrency);
 
   return (
     <CreateEntityDialog
@@ -63,7 +71,13 @@ export function CreateWalletDialog({ defaultCurrency }: { defaultCurrency: strin
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="currency">Devise</Label>
-              <CurrencySelect id="currency" name="currency" value={currency} onValueChange={setCurrency} />
+              <CurrencySelect
+                id="currency"
+                name="currency"
+                value={currency}
+                onValueChange={setCurrency}
+                currencies={currencies}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="initial_balance">Solde initial</Label>

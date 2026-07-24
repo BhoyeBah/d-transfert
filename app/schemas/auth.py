@@ -15,6 +15,10 @@ class MeResponse(BaseModel):
     permissions: list[str]
 
 
+class PublicPlatformSettingsResponse(BaseModel):
+    supported_currencies: list[str]
+
+
 class RegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

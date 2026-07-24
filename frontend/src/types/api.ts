@@ -87,6 +87,16 @@ export type Wallet = {
   created_at: string;
 };
 
+// Sous-ensemble minimal de Wallet exposé aux rôles opérationnels (entrée/envoi/paiement/
+// validation) sans les permissions wallet.manage complètes — cf. GET /api/v1/wallets/options.
+export type WalletOption = {
+  id: string;
+  name: string;
+  code: string;
+  currency: string;
+  status: WalletStatus;
+};
+
 export type WalletMovement = {
   id: string;
   direction: MovementDirection;
@@ -568,6 +578,17 @@ export type PlatformSettings = {
   max_transaction_amount: string | null;
   maintenance_mode: boolean;
   require_company_approval: boolean;
+};
+
+export type AdminBackup = {
+  filename: string;
+  created_at: string;
+  size_bytes: number;
+};
+
+export type AdminBackupAction = {
+  detail: string;
+  backup: AdminBackup;
 };
 
 export type SubscriptionPlan = "free" | "standard" | "premium";

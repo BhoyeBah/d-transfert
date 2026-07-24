@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { listCollaborations } from "@/lib/data/collaborations";
 import { listPrivateRates } from "@/lib/data/private-rates";
 import { getCompanyMe } from "@/lib/data/company";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { formatDate } from "@/lib/format";
 import { sendModeLabels } from "@/lib/validation/transfers";
 import { PageHeader } from "@/components/page-header";
@@ -24,10 +25,11 @@ import { RateStatusButton } from "./rate-status-button";
 export const metadata: Metadata = { title: "Taux d'envoi — D-Transfert" };
 
 export default async function PrivateRatesPage() {
-  const [rates, collaborations, company] = await Promise.all([
+  const [rates, collaborations, company, settings] = await Promise.all([
     listPrivateRates(),
     listCollaborations(),
     getCompanyMe(),
+    getPublicPlatformSettings(),
   ]);
   const collaborationById = new Map(collaborations.map((c) => [c.id, c]));
   const acceptedCollaborations = collaborations.filter((c) => c.status === "accepted");
@@ -45,6 +47,7 @@ export default async function PrivateRatesPage() {
           <CreatePrivateRateDialog
             defaultCurrency={company.default_currency}
             collaborations={acceptedCollaborations}
+            supportedCurrencies={settings.supported_currencies}
           />
         }
       />
@@ -57,6 +60,7 @@ export default async function PrivateRatesPage() {
               <CreatePrivateRateDialog
                 defaultCurrency={company.default_currency}
                 collaborations={acceptedCollaborations}
+                supportedCurrencies={settings.supported_currencies}
               />
             }
           />

@@ -18,8 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UserStatusActions } from "../companies/[companyId]/user-status-actions";
 import { CreatePlatformAdminDialog } from "./create-platform-admin-dialog";
+import { PlatformAdminRowActions } from "./platform-admin-row-actions";
 
 export const metadata: Metadata = { title: "Comptes Super Admin — Administration D-Transfert" };
 
@@ -83,7 +83,7 @@ export default async function AdminPlatformAdminsPage({
                     <StatusBadge status={admin.is_active ? "active" : "inactive"} />
                   </TableCell>
                   <TableCell>
-                    <UserStatusActions userId={admin.id} companyId={null} isActive={admin.is_active} />
+                    <PlatformAdminRowActions admin={admin} />
                   </TableCell>
                 </TableRow>
               ))}

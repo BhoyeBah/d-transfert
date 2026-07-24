@@ -25,6 +25,14 @@ class AdminUserStatusUpdateRequest(BaseModel):
     is_active: bool
 
 
+class AdminUserUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: str | None = Field(default=None, min_length=2, max_length=255)
+    phone: str | None = Field(default=None, min_length=6, max_length=32)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class PlatformAdminCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -89,6 +97,21 @@ class PlatformSettingsUpdateRequest(BaseModel):
     max_transaction_amount: Decimal | None = None
     maintenance_mode: bool | None = None
     require_company_approval: bool | None = None
+
+
+class AdminBackupResponse(BaseModel):
+    filename: str
+    created_at: datetime
+    size_bytes: int
+
+
+class AdminBackupActionResponse(BaseModel):
+    detail: str
+    backup: AdminBackupResponse
+
+
+class AdminBackupRestoreRequest(BaseModel):
+    filename: str = Field(pattern=r"^dtransfert_\d{8}_\d{6}\.dump\.gz$")
 
 
 class SubscriptionResponse(BaseModel):

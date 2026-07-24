@@ -2,11 +2,16 @@ import uuid
 from collections import defaultdict
 from decimal import Decimal
 
+from sqlalchemy import delete, or_, select, text as _text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.security import hash_password
+from app.models.collaboration import Collaboration
 from app.models.company import Company, CompanyStatus
+from app.models.entry_allocation import EntryAllocation
+from app.models.payment import Payment
+from app.models.transfer import Transfer
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.repositories import (
@@ -25,6 +30,7 @@ from app.schemas.admin import (
     AdminCompanyDetailResponse,
     AdminPlatformStatsResponse,
     AdminUserResponse,
+    AdminUserUpdateRequest,
     PlatformAdminCreateRequest,
     PlatformSettingsResponse,
     PlatformSettingsUpdateRequest,
@@ -32,9 +38,12 @@ from app.schemas.admin import (
     SubscriptionUpdateRequest,
     SystemLogResponse,
 )
-from app.schemas.company import AdminCompanyUpdateRequest
+from app.schemas.auth import RegisterResponse
+from app.schemas.company import AdminCompanyCreateRequest, AdminCompanyUpdateRequest
 from app.schemas.pagination import PageParams
 from app.services import audit_service
+from app.services.company_service import create_company_with_owner
+from app.services.user_management_service import count_user_dependency_usage, has_user_dependencies
 from app.utils.reference import generate_platform_admin_matricule
 
 
@@ -71,6 +80,27 @@ async def list_companies_page(session: AsyncSession, params: PageParams) -> tupl
     return await company_repository.list_all_page(
         session, params.page, params.page_size, params.search, params.sort_by, params.sort_dir
     )
+
+
+async def create_company(
+    session: AsyncSession, acted_by_user_id: uuid.UUID, payload: AdminCompanyCreateRequest
+) -> RegisterResponse:
+    company, owner = await create_company_with_owner(
+        session,
+        company_name=payload.company_name,
+        company_phone=payload.company_phone,
+        address=payload.address,
+        default_currency=payload.default_currency,
+        owner_full_name=payload.owner_full_name,
+        password=payload.password,
+        status=payload.status,
+    )
+    await audit_service.log_action(
+        session, company.id, acted_by_user_id, "admin.company_create", "company", company.id,
+        note=f"status={payload.status.value}",
+    )
+    await session.commit()
+    return RegisterResponse(company_id=company.id, registration_code=company.registration_code, owner_user_id=owner.id)
 
 
 async def set_company_status(
@@ -234,6 +264,52 @@ async def create_platform_admin(
     return _user_to_response(admin)
 
 
+async def update_platform_admin(
+    session: AsyncSession, acted_by_user_id: uuid.UUID, admin_id: uuid.UUID, payload: AdminUserUpdateRequest
+) -> AdminUserResponse:
+    admin = await user_repository.get_by_id(session, admin_id)
+    if admin is None or not admin.is_super_admin:
+        raise NotFoundError("Compte Super Admin introuvable.")
+
+    if payload.phone is not None and payload.phone != admin.phone:
+        existing = await user_repository.get_super_admin_by_phone(session, payload.phone)
+        if existing is not None and existing.id != admin.id:
+            raise ConflictError("Ce numéro de téléphone est déjà utilisé par un compte Super Admin.")
+        admin.phone = payload.phone
+    if payload.full_name is not None:
+        admin.full_name = payload.full_name
+    if payload.password is not None:
+        admin.password_hash = hash_password(payload.password)
+
+    await audit_service.log_action(
+        session, None, acted_by_user_id, "admin.platform_admin_update", "user", admin.id
+    )
+    await session.commit()
+    return _user_to_response(admin)
+
+
+async def delete_platform_admin(session: AsyncSession, acted_by_user_id: uuid.UUID, admin_id: uuid.UUID) -> None:
+    admin = await user_repository.get_by_id(session, admin_id)
+    if admin is None or not admin.is_super_admin:
+        raise NotFoundError("Compte Super Admin introuvable.")
+
+    if admin.is_active and await user_repository.count_active_super_admins(session) <= 1:
+        raise ConflictError("Impossible de supprimer le dernier compte Super Admin actif.")
+
+    counts = await count_user_dependency_usage(session, admin.id)
+    if has_user_dependencies(counts):
+        raise ConflictError(
+            "Ce compte ne peut pas être supprimé car il est référencé par des données métier. "
+            "Désactivez le compte à la place."
+        )
+
+    await audit_service.log_action(
+        session, None, acted_by_user_id, "admin.platform_admin_delete", "user", admin.id
+    )
+    await session.delete(admin)
+    await session.commit()
+
+
 async def get_platform_stats(session: AsyncSession) -> AdminPlatformStatsResponse:
     status_counts = await company_repository.count_by_status(session)
     users_total = await user_repository.count_all(session)
@@ -387,3 +463,130 @@ async def update_subscription(
     )
     await session.commit()
     return _subscription_to_response(subscription)
+
+
+async def delete_company(
+    session: AsyncSession, acted_by_user_id: uuid.UUID, company_id: uuid.UUID
+) -> None:
+    """
+    Supprime une entreprise et TOUTES ses données associées de manière irréversible.
+
+    L'ordre de suppression respecte les contraintes FK RESTRICT présentes dans le schéma :
+      1. wallet_movements (RESTRICT → wallets, users)
+      2. entry_lines, entry_allocations (RESTRICT → wallets)
+      3. national_operation_lines (RESTRICT → wallets)
+      4. supplier_balance_movements (RESTRICT → wallets, users)
+      5. client_balance_movements (RESTRICT → users)
+      6. proofs (RESTRICT → users)
+      7. transfers, payments (RESTRICT → collaborations, wallets, users)
+      8. entries, national_operations, collaborations, wallets,
+         clients, suppliers, subscriptions, private_rates,
+         notifications, audit_logs, users  (CASCADE ou RESTRICT → company)
+      9. company elle-même
+    """
+    company = await company_repository.get_by_id(session, company_id)
+    if company is None:
+        raise NotFoundError("Entreprise introuvable.")
+
+    cid = str(company_id)
+    collaboration_ids = select(Collaboration.id).where(
+        or_(Collaboration.initiator_company_id == company_id, Collaboration.target_company_id == company_id)
+    )
+
+    # Étape 1 – mouvements de wallet (RESTRICT sur wallets.id et users.id)
+    await session.execute(_text(
+        "DELETE FROM wallet_movements WHERE wallet_id IN "
+        "(SELECT id FROM wallets WHERE company_id = :cid)"
+    ), {"cid": cid})
+
+    # Étape 2 – lignes d'entrée et allocations (RESTRICT sur wallets.id)
+    await session.execute(_text(
+        "DELETE FROM entry_lines WHERE entry_id IN "
+        "(SELECT id FROM entries WHERE company_id = :cid)"
+    ), {"cid": cid})
+    await session.execute(_text(
+        "DELETE FROM entry_allocations WHERE entry_id IN "
+        "(SELECT id FROM entries WHERE company_id = :cid)"
+    ), {"cid": cid})
+
+    # Étape 3 – lignes d'opérations nationales (RESTRICT sur wallets.id)
+    await session.execute(_text(
+        "DELETE FROM national_operation_lines WHERE national_operation_id IN "
+        "(SELECT id FROM national_operations WHERE company_id = :cid)"
+    ), {"cid": cid})
+
+    # Étape 4 – mouvements fournisseurs (RESTRICT sur wallets.id et users.id)
+    await session.execute(_text(
+        "DELETE FROM supplier_balance_movements WHERE company_id = :cid"
+    ), {"cid": cid})
+
+    # Étape 5 – mouvements clients (RESTRICT sur users.id)
+    await session.execute(_text(
+        "DELETE FROM client_balance_movements WHERE client_id IN "
+        "(SELECT id FROM clients WHERE company_id = :cid)"
+    ), {"cid": cid})
+
+    # Étape 6 – preuves (RESTRICT sur users.id)
+    await session.execute(_text(
+        "DELETE FROM proofs WHERE company_id = :cid"
+    ), {"cid": cid})
+
+    # Étape 7 – transferts et paiements liés à la compagnie, y compris ceux partagés via une
+    # collaboration dont l'autre extrémité appartenait à une autre entreprise.
+    # On supprime aussi les allocations d'entrée pointant vers ces opérations pour éviter les
+    # références orphelines côté logique applicative.
+    await session.execute(
+        delete(EntryAllocation).where(
+            EntryAllocation.target_type == "transfer",
+            EntryAllocation.target_id.in_(select(Transfer.id).where(
+                or_(Transfer.company_id == company_id, Transfer.collaboration_id.in_(collaboration_ids))
+            )),
+        )
+    )
+    await session.execute(
+        delete(EntryAllocation).where(
+            EntryAllocation.target_type == "payment",
+            EntryAllocation.target_id.in_(select(Payment.id).where(
+                or_(Payment.company_id == company_id, Payment.collaboration_id.in_(collaboration_ids))
+            )),
+        )
+    )
+
+    # Étape 8 – transferts et paiements avec leurs historiques de statut
+    # (RESTRICT sur collaborations.id, wallets.id, users.id)
+    await session.execute(_text("DELETE FROM transfer_status_history WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(
+        delete(Transfer).where(or_(Transfer.company_id == company_id, Transfer.collaboration_id.in_(collaboration_ids)))
+    )
+    await session.execute(_text("DELETE FROM payment_status_history WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(
+        delete(Payment).where(or_(Payment.company_id == company_id, Payment.collaboration_id.in_(collaboration_ids)))
+    )
+
+    # Étape 9 – reste des tables enfants avec CASCADE ou RESTRICT sur company_id/users
+    # Entrées, opérations nationales, wallets, clients, fournisseurs
+    await session.execute(_text("DELETE FROM entries WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM national_operations WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM wallets WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM clients WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM suppliers WHERE company_id = :cid"), {"cid": cid})
+
+    # Collaborations (CASCADE sur collaborator_balance_movements, rate_history)
+    await session.execute(
+        delete(Collaboration).where(
+            or_(Collaboration.initiator_company_id == company_id, Collaboration.target_company_id == company_id)
+        )
+    )
+
+    # Taux privés, abonnement, notifications, logs
+    await session.execute(_text("DELETE FROM private_sending_rates WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM subscriptions WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM notifications WHERE company_id = :cid"), {"cid": cid})
+    await session.execute(_text("DELETE FROM audit_logs WHERE company_id = :cid"), {"cid": cid})
+
+    # Utilisateurs (CASCADE sur password_reset_otps et user_permission_overrides)
+    await session.execute(_text("DELETE FROM users WHERE company_id = :cid"), {"cid": cid})
+
+    await session.delete(company)
+
+    await session.commit()

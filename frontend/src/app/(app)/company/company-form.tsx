@@ -4,17 +4,26 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { updateCompanyAction } from "@/actions/company";
+import { mergeCurrencies } from "@/lib/currencies";
 import { initialActionState } from "@/lib/action-state";
 import { isStaleServerActionError, recoverFromStaleServerAction } from "@/lib/server-action-recovery";
-import { SUPPORTED_CURRENCIES } from "@/lib/validation/auth";
 import type { CompanyMe } from "@/types/api";
+import { CurrencySelect } from "@/components/currency-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function CompanyForm({ company }: { company: CompanyMe }) {
+export function CompanyForm({
+  company,
+  supportedCurrencies,
+}: {
+  company: CompanyMe;
+  supportedCurrencies: string[];
+}) {
   const [state, setState] = useState(initialActionState);
   const [isPending, startTransition] = useTransition();
+  const [currency, setCurrency] = useState(company.default_currency);
+  const currencies = mergeCurrencies(supportedCurrencies, company.default_currency);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,19 +70,13 @@ export function CompanyForm({ company }: { company: CompanyMe }) {
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="default_currency">Devise par défaut</Label>
-          <select
+          <CurrencySelect
             id="default_currency"
             name="default_currency"
-            defaultValue={company.default_currency}
-            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-            required
-          >
-            {SUPPORTED_CURRENCIES.map((currency) => (
-              <option key={currency} value={currency}>
-                {currency}
-              </option>
-            ))}
-          </select>
+            value={currency}
+            onValueChange={setCurrency}
+            currencies={currencies}
+          />
           {state.fieldErrors?.default_currency && (
             <p className="text-sm text-destructive">{state.fieldErrors.default_currency[0]}</p>
           )}

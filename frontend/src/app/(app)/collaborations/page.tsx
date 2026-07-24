@@ -4,6 +4,7 @@ import { Clock, Link2, Users } from "lucide-react";
 import { getCompanyMe } from "@/lib/data/company";
 import { getCollaboratorBalance, listCollaborations, listCollaborationsPage } from "@/lib/data/collaborations";
 import { getMe } from "@/lib/data/me";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatDate, formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
@@ -34,11 +35,12 @@ export default async function CollaborationsPage({
   searchParams: Promise<DataTableSearchParams>;
 }) {
   const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
-  const [collaborationsPage, allCollaborations, company, me] = await Promise.all([
+  const [collaborationsPage, allCollaborations, company, me, settings] = await Promise.all([
     listCollaborationsPage({ page, search, sortBy, sortDir }),
     listCollaborations(),
     getCompanyMe(),
     getMe(),
+    getPublicPlatformSettings(),
   ]);
   const collaborations = collaborationsPage.items;
   const acceptedCount = allCollaborations.filter((collaboration) => collaboration.status === "accepted").length;
@@ -57,7 +59,12 @@ export default async function CollaborationsPage({
       <PageHeader
         title="Collaborations"
         description="Entreprises partenaires pour les envois internationaux."
-        action={<RequestCollaborationDialog defaultCurrency={company.default_currency} />}
+        action={
+          <RequestCollaborationDialog
+            defaultCurrency={company.default_currency}
+            supportedCurrencies={settings.supported_currencies}
+          />
+        }
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -171,6 +178,7 @@ export default async function CollaborationsPage({
                         <CollaborationRowActions
                           collaboration={collaboration}
                           isTarget={collaboration.target_company_id === me.company_id}
+                          supportedCurrencies={settings.supported_currencies}
                         />
                       </TableCell>
                     </TableRow>

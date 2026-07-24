@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRightIcon } from "lucide-react";
 
 import { listSuppliersPage } from "@/lib/data/suppliers";
+import { getPublicPlatformSettings } from "@/lib/data/platform-settings";
 import { parseDataTableParams, type DataTableSearchParams } from "@/lib/data-table";
 import { formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
@@ -31,9 +32,10 @@ export default async function SuppliersPage({
   searchParams: Promise<DataTableSearchParams>;
 }) {
   const { page, search, sortBy, sortDir } = parseDataTableParams(await searchParams);
-  const [suppliersPage, company] = await Promise.all([
+  const [suppliersPage, company, settings] = await Promise.all([
     listSuppliersPage({ page, search, sortBy, sortDir }),
     getCompanyMe(),
+    getPublicPlatformSettings(),
   ]);
   const suppliers = suppliersPage.items;
 
@@ -42,13 +44,23 @@ export default async function SuppliersPage({
       <PageHeader
         title="Fournisseurs"
         description="Fournisseurs et suivi de leurs dettes/paiements."
-        action={<CreateSupplierDialog defaultCurrency={company.default_currency} />}
+        action={
+          <CreateSupplierDialog
+            defaultCurrency={company.default_currency}
+            supportedCurrencies={settings.supported_currencies}
+          />
+        }
       />
 
       {suppliersPage.total === 0 && !search ? (
         <EmptyState
           message="Aucun fournisseur enregistré."
-          action={<CreateSupplierDialog defaultCurrency={company.default_currency} />}
+          action={
+            <CreateSupplierDialog
+              defaultCurrency={company.default_currency}
+              supportedCurrencies={settings.supported_currencies}
+            />
+          }
         />
       ) : (
         <div className="flex flex-col gap-4">

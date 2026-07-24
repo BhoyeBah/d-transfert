@@ -1,6 +1,32 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+import { Menu } from "lucide-react";
+
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/nav";
+
+const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
+
+function subscribeToSidebar(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("sidebar-state-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("sidebar-state-change", callback);
+  };
+}
+
+function getSidebarSnapshot() {
+  return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+}
+
+function getServerSidebarSnapshot() {
+  return false;
+}
 
 export function AppShell({
   navItems,
@@ -19,33 +45,53 @@ export function AppShell({
   showNotifications?: boolean;
   children: React.ReactNode;
 }) {
+  const sidebarCollapsed = useSyncExternalStore(
+    subscribeToSidebar,
+    getSidebarSnapshot,
+    getServerSidebarSnapshot
+  );
+
+  function toggleSidebar() {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(!sidebarCollapsed));
+    window.dispatchEvent(new Event("sidebar-state-change"));
+  }
+
   return (
     <div className="app-shell-frame flex min-h-screen overflow-hidden">
-      <aside className="relative hidden w-72 shrink-0 flex-col border-r border-sidebar-border/70 bg-sidebar/95 text-sidebar-foreground shadow-[inset_-1px_0_0_rgba(255,255,255,0.03)] backdrop-blur lg:flex">
-        <div className="border-b border-sidebar-border/70 px-5 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-sidebar-primary/15 text-sm font-semibold text-sidebar-primary shadow-sm">
-              D
+      <aside
+        className={cn(
+          "relative hidden shrink-0 flex-col border-r border-sidebar-border/70 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out lg:flex",
+          sidebarCollapsed ? "w-20" : "w-64"
+        )}
+      >
+        <div className={cn("border-b border-sidebar-border/70 py-5", sidebarCollapsed ? "px-3" : "px-4")}>
+          <div className={cn("flex items-center", sidebarCollapsed ? "flex-col gap-3" : "gap-3")}>
+            <div className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
+              DT
             </div>
-            <div className="min-w-0">
+            <div className={cn("min-w-0 flex-1", sidebarCollapsed && "hidden")}>
               <div className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
                 D-Transfert
               </div>
-              <div className="text-xs text-sidebar-foreground/60">
-                Console de trésorerie multi-entreprises
+              <div className="text-[11px] text-sidebar-foreground/55">
+                Gestion financière
               </div>
             </div>
-          </div>
-          <div className="mt-4 rounded-2xl border border-sidebar-border/70 bg-sidebar-accent/60 px-4 py-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sidebar-primary">
-              Session active
-            </div>
-            <div className="mt-1 text-sm font-medium text-sidebar-accent-foreground">{companyName}</div>
-            <div className="text-xs text-sidebar-foreground/60">{roleLabel}</div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? "Ouvrir la navigation" : "Réduire la navigation"}
+              aria-expanded={!sidebarCollapsed}
+              className="size-9 text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            >
+              <Menu className="size-5" />
+            </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto py-3">
-          <SidebarNav items={navItems} />
+        <div className="flex-1 overflow-y-auto py-4">
+          <SidebarNav items={navItems} collapsed={sidebarCollapsed} />
         </div>
       </aside>
 
@@ -58,8 +104,8 @@ export function AppShell({
           navItems={navItems}
           showNotifications={showNotifications}
         />
-        <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">{children}</div>
+        <main className="flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+          <div className="page-content mx-auto flex w-full max-w-[1400px] flex-col gap-6">{children}</div>
         </main>
       </div>
     </div>
