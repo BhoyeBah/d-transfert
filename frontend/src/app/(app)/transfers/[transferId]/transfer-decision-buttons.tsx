@@ -75,7 +75,8 @@ export function TransferDecisionButtons({
             <DialogTitle>Approuver l&apos;envoi</DialogTitle>
             <DialogDescription>
               Sélectionnez le wallet depuis lequel vous avez payé le bénéficiaire — son solde sera
-              débité du montant converti — et joignez la preuve du paiement (image ou PDF).
+              débité du montant converti. Vous pouvez aussi joindre la preuve du paiement (image ou
+              PDF), optionnelle.
             </DialogDescription>
           </DialogHeader>
           <form action={approve} className="flex flex-col gap-4">
@@ -101,13 +102,12 @@ export function TransferDecisionButtons({
               )}
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="proof">Preuve du paiement</Label>
+              <Label htmlFor="proof">Preuve du paiement (optionnel)</Label>
               <Input
                 id="proof"
                 name="proof"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,application/pdf"
-                required
               />
             </div>
             <DialogFooter>

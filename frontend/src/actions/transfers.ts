@@ -52,16 +52,17 @@ export async function approveTransferAction(
   if (!walletId) {
     return { ok: false, message: "Sélectionnez le wallet ayant servi à payer le bénéficiaire." };
   }
-  if (!proofFile || proofFile.size === 0) {
-    return { ok: false, message: "Une preuve du paiement (image ou PDF) est requise pour approuver." };
-  }
   try {
-    const uploadFormData = new FormData();
-    uploadFormData.set("file", proofFile);
-    const proof = await serverFetchMultipart<Proof>(`/api/v1/transfers/${transferId}/proofs`, uploadFormData);
+    let proofId: string | null = null;
+    if (proofFile && proofFile.size > 0) {
+      const uploadFormData = new FormData();
+      uploadFormData.set("file", proofFile);
+      const proof = await serverFetchMultipart<Proof>(`/api/v1/transfers/${transferId}/proofs`, uploadFormData);
+      proofId = proof.id;
+    }
     await serverFetch(`/api/v1/transfers/${transferId}/approve`, {
       method: "POST",
-      body: { wallet_id: walletId, proof_id: proof.id },
+      body: { wallet_id: walletId, proof_id: proofId },
     });
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, message: error.message };
