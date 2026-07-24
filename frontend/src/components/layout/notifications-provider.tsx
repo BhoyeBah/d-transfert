@@ -12,17 +12,24 @@ type NotificationsContextValue = {
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 // Bip synthétisé (Web Audio API) plutôt qu'un fichier audio embarqué : pas d'asset à charger,
-// pas de problème de licence. Volontairement discret (gain faible, décroissance rapide).
+// pas de problème de licence.
 function playNotificationSound() {
   try {
     const AudioContextClass =
       window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new AudioContextClass();
+    // Un AudioContext peut démarrer "suspended" (politique anti-autoplay) : on programme quand
+    // même la lecture immédiatement (elle joue dès que le contexte tourne, en rattrapant le
+    // planning déjà posé) et on tente resume() en parallèle sans bloquer dessus — l'attendre
+    // ferait ne jamais jouer le son si resume() ne se résout jamais.
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
     oscillator.type = "sine";
     oscillator.frequency.value = 880;
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
     oscillator.connect(gain);
     gain.connect(ctx.destination);
@@ -30,8 +37,8 @@ function playNotificationSound() {
     oscillator.stop(ctx.currentTime + 0.3);
     oscillator.onended = () => ctx.close();
   } catch {
-    // Lecture audio indisponible (bloquée par le navigateur, pas d'interaction utilisateur
-    // encore enregistrée, etc.) : ne doit jamais empêcher l'affichage de la notification.
+    // Lecture audio indisponible (Web Audio absent, etc.) : ne doit jamais empêcher
+    // l'affichage de la notification.
   }
 }
 
