@@ -118,5 +118,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)"],
+  // manifest.webmanifest et sw.js doivent rester accessibles sans session : le navigateur les
+  // récupère directement pour évaluer l'installabilité PWA / enregistrer le service worker,
+  // indépendamment de l'état de connexion de l'utilisateur.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\\.png$|.*\\.svg$).*)"],
 };

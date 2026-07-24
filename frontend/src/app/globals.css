@@ -147,6 +147,11 @@ body {
   color: var(--foreground);
   background-attachment: fixed;
   font-feature-settings: "ss01" 1, "cv10" 1;
+  /* Zéro dans un navigateur classique ; comble l'encoche/la barre d'accueil iPhone une fois
+     installé en PWA (viewport-fit=cover). Le haut est géré par app-topbar.tsx (sticky). */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 html {

@@ -49,7 +49,10 @@ export function AppTopbar({
   const { unreadCount } = useNotifications();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+    <header
+      className="sticky top-0 z-30 border-b border-border/80 bg-background/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3">
       <Sheet>
         <SheetTrigger asChild>
