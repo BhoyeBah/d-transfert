@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import type { NotificationItem } from "@/types/api";
@@ -58,6 +59,7 @@ export function NotificationsProvider({
   enabled: boolean;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   // Resynchronise avec la valeur rendue côté serveur (source de vérité à chaque navigation)
   // sans passer par un effet : ajuster l'état pendant le rendu évite un rendu en cascade
@@ -77,12 +79,16 @@ export function NotificationsProvider({
       setUnreadCount((count) => count + 1);
       toast.info(notification.message, { duration: 5000 });
       playNotificationSound();
+      // Sans ça, seul le toast/badge est à jour : les données déjà affichées (ex. le statut
+      // "En attente" d'un envoi dans son tableau) restent celles du rendu serveur précédent
+      // tant que l'utilisateur ne recharge pas la page à la main.
+      router.refresh();
     };
 
     // EventSource se reconnecte automatiquement après une coupure (comportement natif du
     // navigateur) : aucune logique de reconnexion manuelle n'est nécessaire ici.
     return () => source.close();
-  }, [enabled]);
+  }, [enabled, router]);
 
   return <NotificationsContext.Provider value={{ unreadCount }}>{children}</NotificationsContext.Provider>;
 }
