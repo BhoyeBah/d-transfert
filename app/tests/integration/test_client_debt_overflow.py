@@ -88,7 +88,6 @@ async def test_transfer_overflow_creates_client_debt_with_explicit_client(client
     clients_response = await client.get("/api/v1/clients", headers=_auth_headers(token_a))
     clients = clients_response.json()
     assert len(clients) == 1
-    assert clients[0]["balance"] == "30000.00"
     assert clients[0]["balances"] == [{"currency": "GNF", "balance": "30000.00"}]
 
     movements_response = await client.get(

@@ -31,9 +31,14 @@ async def _generate_unique_reference(session: AsyncSession, company_id: uuid.UUI
 
 
 async def _load_with_lines(
-    session: AsyncSession, company_id: uuid.UUID, operation_id: uuid.UUID
+    session: AsyncSession, company_id: uuid.UUID, operation_id: uuid.UUID, for_update: bool = False
 ) -> tuple[NationalOperation, list[NationalOperationLine]]:
-    operation = await national_operation_repository.get_by_company_and_id(session, company_id, operation_id)
+    if for_update:
+        operation = await national_operation_repository.lock_by_id(session, operation_id)
+        if operation is not None and operation.company_id != company_id:
+            operation = None
+    else:
+        operation = await national_operation_repository.get_by_company_and_id(session, company_id, operation_id)
     if operation is None:
         raise NotFoundError("Opération nationale introuvable.")
     lines = await national_operation_repository.get_lines(session, operation.id)
@@ -148,7 +153,7 @@ async def list_operations_page(
 async def cancel_operation(
     session: AsyncSession, company_id: uuid.UUID, operation_id: uuid.UUID, created_by_id: uuid.UUID
 ) -> tuple[NationalOperation, list[NationalOperationLine]]:
-    operation, original_lines = await _load_with_lines(session, company_id, operation_id)
+    operation, original_lines = await _load_with_lines(session, company_id, operation_id, for_update=True)
 
     if operation.status != NationalOperationStatus.VALIDATED:
         raise ConflictError("Seule une opération validée peut être annulée.")

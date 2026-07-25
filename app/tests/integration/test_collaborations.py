@@ -656,3 +656,45 @@ async def test_transfer_create_permission_grants_read_only_collaboration_access(
         f"/api/v1/collaborations/{collaboration_id}/balance", headers=_auth_headers(employee_token)
     )
     assert balance_response.status_code == 403
+
+
+async def test_suspend_collaboration_notifies_other_party(client):
+    (matricule_a, token_a), (matricule_b, token_b) = await _setup_pair(client)
+    create_response = await client.post(
+        "/api/v1/collaborations",
+        json={"target_matricule": matricule_b, "currency": "GNF", "initial_rate": "16"},
+        headers=_auth_headers(token_a),
+    )
+    collaboration_id = create_response.json()["id"]
+    await client.post(f"/api/v1/collaborations/{collaboration_id}/accept", headers=_auth_headers(token_b))
+
+    response = await client.post(
+        f"/api/v1/collaborations/{collaboration_id}/suspend", headers=_auth_headers(token_a)
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "suspended"
+
+    notifications_b = await client.get("/api/v1/notifications", headers=_auth_headers(token_b))
+    types = [n["type"] for n in notifications_b.json()]
+    assert "collaboration_suspended" in types
+
+
+async def test_archive_collaboration_notifies_other_party(client):
+    (matricule_a, token_a), (matricule_b, token_b) = await _setup_pair(client)
+    create_response = await client.post(
+        "/api/v1/collaborations",
+        json={"target_matricule": matricule_b, "currency": "GNF", "initial_rate": "16"},
+        headers=_auth_headers(token_a),
+    )
+    collaboration_id = create_response.json()["id"]
+    await client.post(f"/api/v1/collaborations/{collaboration_id}/accept", headers=_auth_headers(token_b))
+
+    response = await client.post(
+        f"/api/v1/collaborations/{collaboration_id}/archive", headers=_auth_headers(token_a)
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "archived"
+
+    notifications_b = await client.get("/api/v1/notifications", headers=_auth_headers(token_b))
+    types = [n["type"] for n in notifications_b.json()]
+    assert "collaboration_archived" in types

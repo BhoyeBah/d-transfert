@@ -18,6 +18,12 @@ from app.schemas.pagination import PageParams
 from app.services import audit_service, notification_service
 
 
+def _other_party(collaboration: Collaboration, company_id: uuid.UUID) -> uuid.UUID:
+    if collaboration.initiator_company_id == company_id:
+        return collaboration.target_company_id
+    return collaboration.initiator_company_id
+
+
 async def _get_owned_collaboration(
     session: AsyncSession, company_id: uuid.UUID, collaboration_id: uuid.UUID
 ) -> Collaboration:

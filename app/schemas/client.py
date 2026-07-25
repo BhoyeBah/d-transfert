@@ -23,7 +23,9 @@ class ClientResponse(BaseModel):
     name: str
     phone: str
     note: str | None
-    balance: Decimal
+    # Pas de champ "balance" scalaire : un client peut avoir des dettes dans plusieurs devises
+    # via des collaborations différentes, additionner ces montants n'aurait aucun sens
+    # économique. Toujours utiliser `balances` (détail par devise) ci-dessous.
     balances: list[ClientCurrencyBalance] = Field(default_factory=list)
     created_at: datetime
 

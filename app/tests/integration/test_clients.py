@@ -30,7 +30,7 @@ async def test_create_client_quick(client):
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["balance"] == "0.00"
+    assert body["balances"] == []
 
 
 async def test_duplicate_phone_returns_existing_client(client):

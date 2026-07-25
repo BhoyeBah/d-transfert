@@ -43,6 +43,7 @@ export default async function DashboardPage() {
 
   const dashboard = await getDashboard();
   const walletCurrencies = Object.entries(dashboard.wallets_balance_by_currency);
+  const clientDebtCurrencies = Object.entries(dashboard.clients_total_balance);
   const pendingCount = dashboard.transfers_pending_count + dashboard.payments_pending_count;
   const canCreateEntry = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.ENTRY_MANAGE);
   const canCreateTransfer = hasPermission(me.permissions, me.is_owner, me.is_super_admin, PermissionCode.TRANSFER_CREATE);
@@ -223,11 +224,18 @@ export default async function DashboardPage() {
         </Card>
 
         <div className="flex flex-col gap-4">
-          <StatTile
-            label="Dettes clients"
-            value={formatMoney(dashboard.clients_total_balance)}
-            icon={HandCoins}
-          />
+          {clientDebtCurrencies.length > 0 ? (
+            clientDebtCurrencies.map(([currency, amount]) => (
+              <StatTile
+                key={currency}
+                label={`Dettes clients ${currency}`}
+                value={formatMoney(amount, currency)}
+                icon={HandCoins}
+              />
+            ))
+          ) : (
+            <StatTile label="Dettes clients" value="—" icon={HandCoins} hint="Aucune dette en cours" />
+          )}
           <StatTile
             label="Dettes fournisseurs"
             value={formatMoney(dashboard.suppliers_total_balance)}

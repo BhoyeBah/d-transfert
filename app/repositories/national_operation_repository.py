@@ -47,6 +47,13 @@ async def get_by_company_and_id(
     return result.scalar_one_or_none()
 
 
+async def lock_by_id(session: AsyncSession, operation_id: uuid.UUID) -> NationalOperation | None:
+    result = await session.execute(
+        select(NationalOperation).where(NationalOperation.id == operation_id).with_for_update()
+    )
+    return result.scalar_one_or_none()
+
+
 async def list_by_company(session: AsyncSession, company_id: uuid.UUID) -> list[NationalOperation]:
     result = await session.execute(
         select(NationalOperation)

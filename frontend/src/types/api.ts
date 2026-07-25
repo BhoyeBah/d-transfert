@@ -43,7 +43,9 @@ export type DashboardResponse = {
   payments_today_count: number;
   payments_pending_count: number;
   payments_rejected_count: number;
-  clients_total_balance: string;
+  // Par devise : un client peut avoir des dettes dans plusieurs devises différentes,
+  // les additionner en un seul nombre n'aurait aucun sens économique.
+  clients_total_balance: Record<string, string>;
   suppliers_total_balance: string;
   unread_notifications_count: number;
   alerts: DashboardAlert[];
@@ -344,7 +346,6 @@ export type Client = {
   name: string;
   phone: string;
   note: string | null;
-  balance: string;
   balances: ClientCurrencyBalance[];
   created_at: string;
 };

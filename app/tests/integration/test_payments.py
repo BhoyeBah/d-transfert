@@ -306,7 +306,7 @@ async def test_payment_reliquat_client_credit(client):
     clients_response = await client.get("/api/v1/clients", headers=_auth_headers(token_a))
     clients = clients_response.json()
     assert len(clients) == 1
-    assert clients[0]["balance"] == "-5000.00"
+    assert clients[0]["balances"] == [{"currency": "GNF", "balance": "-5000.00"}]
 
 
 async def test_direct_payment_without_entry_with_client_creates_full_debt(client):
@@ -332,7 +332,7 @@ async def test_direct_payment_without_entry_with_client_creates_full_debt(client
     clients = clients_response.json()
     assert len(clients) == 1
     assert clients[0]["id"] == body["client_id"]
-    assert clients[0]["balance"] == "30000.00"
+    assert clients[0]["balances"] == [{"currency": "GNF", "balance": "30000.00"}]
 
 
 async def test_cancel_payment_reverses_client_debt(client):
@@ -358,7 +358,7 @@ async def test_cancel_payment_reverses_client_debt(client):
     assert cancel_response.status_code == 200
 
     client_after = await client.get(f"/api/v1/clients/{client_id}", headers=_auth_headers(token_a))
-    assert client_after.json()["balance"] == "0.00"
+    assert client_after.json()["balances"] == []
 
 
 async def test_reject_payment_reverses_client_debt(client):
@@ -386,7 +386,7 @@ async def test_reject_payment_reverses_client_debt(client):
     assert reject_response.status_code == 200
 
     client_after = await client.get(f"/api/v1/clients/{client_id}", headers=_auth_headers(token_a))
-    assert client_after.json()["balance"] == "0.00"
+    assert client_after.json()["balances"] == []
 
 
 async def test_direct_payment_without_entry_and_without_client_has_no_debt(client):
