@@ -1,7 +1,6 @@
 import re
 import uuid
 
-import pytest
 from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password

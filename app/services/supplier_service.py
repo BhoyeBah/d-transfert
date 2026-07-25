@@ -1,3 +1,15 @@
+"""Gestion des fournisseurs et de leur solde.
+
+Asymétrie volontaire avec client_service.py : côté client, une dette est créée
+automatiquement lorsqu'un envoi/paiement dépasse le montant disponible d'une entrée
+(cf. transfer_service.create_transfer / payment_service.create_payment). Côté
+fournisseur, il n'existe pas d'équivalent automatique — rebalance_supplier() est
+toujours une opération manuelle explicite (DEBT/CREDIT). C'est un choix de conception
+et non un oubli : la dette client naît d'un dépassement subi lors d'une opération, alors
+que la relation fournisseur n'a pas d'opération équivalente qui déclencherait un
+dépassement de la même façon.
+"""
+
 import uuid
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal

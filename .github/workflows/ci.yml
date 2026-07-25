@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      - name: Lint (ruff)
+        run: ruff check app/
+
       - name: Check for Alembic drift (models vs. migrations)
         env:
           DATABASE_URL: postgresql+asyncpg://dtransfert:dtransfert@localhost:55432/dtransfert_test
