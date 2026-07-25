@@ -42,6 +42,9 @@ class Transfer(Base, UUIDPKMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("clients.id", ondelete="RESTRICT"), nullable=True
     )
     client_debt_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    # Montant du reliquat conservé comme frais (reliquat_action="fee" à la création), dans la
+    # devise `currency` de l'envoi. Nul si aucun reliquat n'a été conservé comme frais.
+    fee_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     reference: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False)

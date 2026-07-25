@@ -66,12 +66,12 @@ export default async function PaymentDetailPage({
           <ArrowLeftIcon className="size-3.5" />
           Paiements client
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="font-mono text-lg font-semibold tracking-tight">{payment.reference}</h1>
             <p className="text-sm text-muted-foreground">{formatDate(payment.created_at)}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={payment.status} />
             {canDecide && <PaymentDecisionButtons paymentId={payment.id} />}
           </div>

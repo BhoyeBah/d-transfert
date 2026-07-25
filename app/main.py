@@ -1,3 +1,4 @@
+import sentry_sdk
 from fastapi import FastAPI, Request
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -25,6 +26,10 @@ from app.routers import (
     transfers,
     wallets,
 )
+
+_settings = get_settings()
+if _settings.sentry_dsn:
+    sentry_sdk.init(dsn=_settings.sentry_dsn, environment=_settings.environment, traces_sample_rate=0.0)
 
 app = FastAPI(
     title="D-Transfert API",

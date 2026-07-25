@@ -81,8 +81,9 @@ export function CreateEntryDialog({ wallets }: { wallets: WalletOption[] }) {
             {fields.map((field, index) => (
               <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-end gap-2 rounded-md border border-border p-3">
                 <div className="grid gap-1">
-                  <Label className="text-xs">Wallet</Label>
+                  <Label className="text-xs" htmlFor={`entry-wallet-${index}`}>Wallet</Label>
                   <select
+                    id={`entry-wallet-${index}`}
                     {...register(`lines.${index}.wallet_id`, {
                       onChange: (e) => {
                         const wallet = wallets.find((w) => w.id === e.target.value);
@@ -105,8 +106,8 @@ export function CreateEntryDialog({ wallets }: { wallets: WalletOption[] }) {
                   </select>
                 </div>
                 <div className="grid gap-1">
-                  <Label className="text-xs">Montant</Label>
-                  <Input type="number" min="0" step="0.01" className="w-28" {...register(`lines.${index}.amount`, { valueAsNumber: true })} />
+                  <Label className="text-xs" htmlFor={`entry-amount-${index}`}>Montant</Label>
+                  <Input id={`entry-amount-${index}`} type="number" min="0" step="0.01" className="w-28" {...register(`lines.${index}.amount`, { valueAsNumber: true })} />
                   <input type="hidden" {...register(`lines.${index}.currency`)} />
                 </div>
                 <Button
@@ -115,6 +116,7 @@ export function CreateEntryDialog({ wallets }: { wallets: WalletOption[] }) {
                   size="icon"
                   disabled={fields.length <= 1}
                   onClick={() => remove(index)}
+                  aria-label="Supprimer la ligne"
                 >
                   <Trash2Icon className="text-destructive" />
                 </Button>

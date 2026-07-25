@@ -1,5 +1,6 @@
 import traceback
 
+import sentry_sdk
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
@@ -60,6 +61,9 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     await system_log_service.log_standalone(
         SystemLogLevel.ERROR, f"http:{request.method} {request.url.path}", trace
     )
+    # No-op si sentry_sdk.init() n'a jamais été appelé (SENTRY_DSN non défini) : le SDK
+    # reste alors inactif et cet appel ne fait rien.
+    sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Erreur interne du serveur."},

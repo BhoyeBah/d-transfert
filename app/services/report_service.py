@@ -1,6 +1,5 @@
 import csv
 import io
-import re
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -40,9 +39,6 @@ from app.schemas.report import (
     TransactionReportRow,
     WalletMovementReportRow,
 )
-
-_FEE_NOTE_PATTERN = re.compile(r"action=fee amount=([\d.]+) (\S+)")
-
 
 def _in_period(created_at: datetime, date_from: date | None, date_to: date | None) -> bool:
     day = created_at.astimezone(timezone.utc).date()
@@ -319,28 +315,35 @@ async def build_client_report(
 async def build_fees_report(
     session: AsyncSession, company_id: uuid.UUID, date_from: date | None, date_to: date | None
 ) -> list[FeeReportRow]:
-    logs = await audit_log_repository.list_by_company(session, company_id)
     rows: list[FeeReportRow] = []
-    for log in logs:
-        if log.action not in ("transfer.reliquat", "payment.reliquat"):
-            continue
-        if not _in_period(log.created_at, date_from, date_to):
-            continue
-        if not log.note:
-            continue
-        match = _FEE_NOTE_PATTERN.search(log.note)
-        if not match:
-            continue
-        amount, currency = match.groups()
-        rows.append(
-            FeeReportRow(
-                source_type=log.entity_type,
-                source_id=log.entity_id,
-                amount=Decimal(amount),
-                currency=currency,
-                created_at=log.created_at,
+
+    transfers = await transfer_repository.list_for_company(session, company_id)
+    for transfer in transfers:
+        if transfer.fee_amount and _in_period(transfer.created_at, date_from, date_to):
+            rows.append(
+                FeeReportRow(
+                    source_type="transfer",
+                    source_id=transfer.id,
+                    amount=transfer.fee_amount,
+                    currency=transfer.currency,
+                    created_at=transfer.created_at,
+                )
             )
-        )
+
+    payments = await payment_repository.list_for_company(session, company_id)
+    for payment in payments:
+        if payment.fee_amount and _in_period(payment.created_at, date_from, date_to):
+            rows.append(
+                FeeReportRow(
+                    source_type="payment",
+                    source_id=payment.id,
+                    amount=payment.fee_amount,
+                    currency=payment.currency,
+                    created_at=payment.created_at,
+                )
+            )
+
+    rows.sort(key=lambda row: row.created_at)
     return rows
 
 

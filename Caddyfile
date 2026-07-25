@@ -1,3 +1,7 @@
 {$DOMAIN} {
+	log {
+		output stdout
+		format console
+	}
 	reverse_proxy frontend:3000
 }

@@ -151,8 +151,9 @@ export function OperationForm({ wallets }: { wallets: Wallet[] }) {
                     return (
                       <div key={field.id} className="grid grid-cols-[1fr_auto_auto] items-end gap-2">
                         <div className="grid gap-1">
-                          <Label className="text-xs">Wallet</Label>
+                          <Label className="text-xs" htmlFor={`op-wallet-${index}`}>Wallet</Label>
                           <select
+                            id={`op-wallet-${index}`}
                             {...register(`lines.${index}.wallet_id`, {
                               onChange: (e) => {
                                 const wallet = wallets.find((w) => w.id === e.target.value);
@@ -172,8 +173,9 @@ export function OperationForm({ wallets }: { wallets: Wallet[] }) {
                           </select>
                         </div>
                         <div className="grid gap-1">
-                          <Label className="text-xs">Montant</Label>
+                          <Label className="text-xs" htmlFor={`op-amount-${index}`}>Montant</Label>
                           <Input
+                            id={`op-amount-${index}`}
                             type="number"
                             min="0"
                             step="0.01"
@@ -206,6 +208,7 @@ export function OperationForm({ wallets }: { wallets: Wallet[] }) {
                           size="icon"
                           disabled={linesInColumn <= 1}
                           onClick={() => remove(index)}
+                          aria-label="Supprimer la ligne"
                         >
                           <Trash2Icon className="text-destructive" />
                         </Button>

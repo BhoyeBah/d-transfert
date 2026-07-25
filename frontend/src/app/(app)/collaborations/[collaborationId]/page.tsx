@@ -70,8 +70,8 @@ export default async function CollaborationDetailPage({
           <ArrowLeftIcon className="size-3.5" />
           Collaborations
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-lg font-semibold tracking-tight">
               Collaboration en {collaboration.currency}
             </h1>
@@ -80,7 +80,7 @@ export default async function CollaborationDetailPage({
             </p>
             <p className="text-sm text-muted-foreground">{collaboration.note ?? "Aucune note."}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={collaboration.status} />
             {collaboration.status === "pending" && isTarget && (
               <CollaborationDecisionButtons collaborationId={collaboration.id} />
@@ -173,8 +173,8 @@ export default async function CollaborationDetailPage({
 
       {pendingProposal && (
         <Card className="border-warning/40">
-          <CardContent className="flex items-center justify-between px-4 py-3">
-            <div>
+          <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <span className="text-sm font-medium">
                 Proposition en cours : nouveau taux {pendingProposal.new_rate}
               </span>
@@ -183,7 +183,9 @@ export default async function CollaborationDetailPage({
               )}
             </div>
             {canDecideProposal ? (
-              <RateProposalDecisionButtons collaborationId={collaboration.id} proposalId={pendingProposal.id} />
+              <div className="self-start sm:self-auto">
+                <RateProposalDecisionButtons collaborationId={collaboration.id} proposalId={pendingProposal.id} />
+              </div>
             ) : (
               <span className="text-xs text-muted-foreground">En attente de l&apos;autre partie</span>
             )}

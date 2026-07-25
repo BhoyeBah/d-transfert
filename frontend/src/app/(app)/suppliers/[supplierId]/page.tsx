@@ -45,13 +45,13 @@ export default async function SupplierDetailPage({
           <ArrowLeftIcon className="size-3.5" />
           Fournisseurs
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-lg font-semibold tracking-tight">{supplier.name}</h1>
             <p className="text-sm text-muted-foreground">{supplier.code}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-left sm:text-right">
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Solde
               </span>

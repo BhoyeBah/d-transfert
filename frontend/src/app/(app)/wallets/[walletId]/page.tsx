@@ -44,14 +44,16 @@ export default async function WalletDetailPage({
           <ArrowLeftIcon className="size-3.5" />
           Wallets
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight">{wallet.name}</h1>
             <p className="text-sm text-muted-foreground">
               {wallet.code} · {walletTypeLabels[wallet.type]}
             </p>
           </div>
-          <ToggleWalletStatusButton walletId={wallet.id} status={wallet.status} />
+          <div className="self-start sm:self-auto">
+            <ToggleWalletStatusButton walletId={wallet.id} status={wallet.status} />
+          </div>
         </div>
       </div>
 

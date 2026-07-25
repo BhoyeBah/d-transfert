@@ -221,6 +221,7 @@ async def create_transfer(
         entry_id=payload.entry_id,
         client_id=client.id if client else None,
         client_debt_amount=client_debt_amount if client_debt_amount > 0 else None,
+        fee_amount=reliquat_amount if reliquat_amount > 0 and payload.reliquat_action == "fee" else None,
         reference=reference,
         amount=_quantize(payload.amount),
         currency=payload.currency,

@@ -41,6 +41,8 @@ services:
       # Optionnel : stockage partagé du rate limiting (voir app/core/rate_limit.py).
       # Laisser vide utilise un compteur en mémoire par processus.
       REDIS_URL: ${REDIS_URL:-}
+      # Optionnel : reporting d'erreurs Sentry. Laisser vide désactive l'intégration.
+      SENTRY_DSN: ${SENTRY_DSN:-}
     volumes:
       # Sans ce volume nommé, chaque redéploiement du conteneur backend efface les
       # preuves déjà uploadées (stockage local — cf. cahier des charges §36.2, qui

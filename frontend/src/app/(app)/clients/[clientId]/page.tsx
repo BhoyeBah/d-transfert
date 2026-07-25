@@ -35,19 +35,19 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           <ArrowLeftIcon className="size-3.5" />
           Clients
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-lg font-semibold tracking-tight">{client.name}</h1>
             <p className="text-sm text-muted-foreground">{client.phone}</p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Solde
             </span>
             {client.balances.length === 0 ? (
               <p className="text-2xl font-semibold tabular-nums">{formatMoney("0")}</p>
             ) : (
-              <div className="flex flex-col items-end">
+              <div className="flex flex-col sm:items-end">
                 {client.balances.map((entry) => (
                   <p
                     key={entry.currency}

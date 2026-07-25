@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # UNIQUEMENT s'il n'existe pas encore — jamais réécrit s'il existe déjà, pour ne pas annuler
     # un changement de mot de passe fait depuis l'interface d'administration.
     super_admin_initial_password: str = DEFAULT_SUPER_ADMIN_PASSWORD
+    # Optionnel : reporting d'erreurs Sentry. Laisser vide désactive complètement
+    # l'intégration (aucun appel réseau, aucune dépendance activée à l'exécution).
+    sentry_dsn: str | None = None
 
 
 def _validate_production_settings(settings: Settings) -> None:

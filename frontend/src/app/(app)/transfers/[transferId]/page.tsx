@@ -79,15 +79,15 @@ export default async function TransferDetailPage({
           <ArrowLeftIcon className="size-3.5" />
           Envois internationaux
         </Link>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="font-mono text-xl font-semibold tracking-tight">{transfer.reference}</h1>
             <p className="text-sm text-muted-foreground">
               Vers {collaboration.counterparty_company_name} · {transfer.beneficiary_name ?? transfer.beneficiary_phone} ·{" "}
               {formatDate(transfer.created_at)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={transfer.status} />
             {canDecide && (
               <TransferDecisionButtons transferId={transfer.id} wallets={walletsForApproval} />

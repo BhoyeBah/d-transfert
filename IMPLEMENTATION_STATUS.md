@@ -30,12 +30,12 @@ réelle.
 | Clients et dettes clients | Conforme | Création rapide, consultation, mouvements. Cycle de correction fermé : la dette (ou le crédit de reliquat) créée à l'initiation d'un envoi/paiement est annulée par un mouvement inverse si l'opération est rejetée ou annulée avant validation. |
 | Fournisseurs | Conforme | Création, rééquilibrage (dette/paiement), mouvements, contrôle de devise. |
 | Preuves | Conforme | Upload, liste, téléchargement, rattachement strict à une opération (contrainte SQL `exactly_one_operation`), statut de validation (`pending`/`validated`/`rejected`) synchronisé automatiquement avec l'approbation/le rejet/l'annulation de l'opération parente. |
-| Notifications | Partiel | Notifications internes cohérentes avec les événements (demande/acceptation/rejet de collaboration, envoi/paiement en attente, rejeté, annulé, taux proposé). Email/SMS/WhatsApp non branchés — explicitement "hors MVP" dans le cahier des charges lui-même (§37.2), différé sur confirmation explicite. |
+| Notifications | Partiel | Notifications internes cohérentes avec les événements (demande/acceptation/rejet de collaboration, envoi/paiement en attente, rejeté, annulé, taux proposé), livrées en temps réel via SSE (badge non-lues + toasts, sans rechargement). Email/SMS/WhatsApp non branchés — explicitement "hors MVP" dans le cahier des charges lui-même (§37.2), différé sur confirmation explicite. |
 | Dashboard | Conforme | **Owner** : soldes wallets, soldes collaborateurs, compteurs du jour, alertes (wallet en négatif, opération en attente > 72h). **Employé** : vue distincte et scopée à sa propre activité (`GET /dashboard/me`) — ses entrées/envois/paiements du jour, ses transactions en attente, nombre de wallets auxquels il a accès selon ses permissions. |
 | Rapports | Conforme (CSV) | Rapport journalier et mensuel, transactions par période, solde par collaborateur, historique d'un wallet, activité par employé, rapport fournisseurs, rapport clients, rapport des frais (reliquats conservés en frais), rapport des opérations rejetées/annulées — tous avec vue JSON + export CSV. **Écart assumé** : export PDF/Excel natif non implémenté (CSV s'ouvre nativement dans Excel, jugé suffisant pour le MVP ; PDF nécessiterait une dépendance de rendu supplémentaire non justifiée à ce stade). |
 | Audit logs | Conforme | Connexion, création (entrée/envoi/paiement), validation, rejet, annulation, modification de taux (proposition/rejet), modification de wallet, création d'employé, changement de permission, intervention admin — tous couverts. |
 | Administration plateforme | Conforme | Statistiques, entreprises, utilisateurs, abonnements, paramètres (dont `require_company_approval`), logs système, comptes Super Admin. |
-| Frontend | Conforme (MVP web) | Tous les écrans du MVP présents et navigables (sidebar complet, y compris Notifications, Rapports enrichis, Dashboard employé). Pas d'application mobile native — hors MVP par choix explicite du cahier des charges et confirmé par le porteur de projet (PWA responsive recommandée, non développée ici). |
+| Frontend | Conforme (MVP web) | Tous les écrans du MVP présents et navigables (sidebar complet, y compris Notifications, Rapports enrichis, Dashboard employé). Installable en PWA (manifest, service worker, icônes, mode standalone iOS/Android) — pas d'application mobile native, hors MVP par choix explicite du cahier des charges et confirmé par le porteur de projet. |
 
 ## Corrections et ajouts apportés dans cette passe finale
 
@@ -82,16 +82,51 @@ réelle.
   `test_employee_dashboard_hides_wallets_without_permission`
   (`test_dashboard_and_reports.py`)
 
-Suite complète : **218 tests passent**. `alembic upgrade head` : propre, sans dérive.
+Suite complète : **275 tests passent**. `alembic upgrade head` : propre, sans dérive.
 Build + lint + typecheck frontend : clean.
+
+## Passe de durcissement (sécurité, robustesse, qualité)
+
+Audit transverse (sécurité, cohérence financière, qualité de code, déploiement,
+frontend) suivi d'une correction systématique de l'ensemble des constats :
+
+1. **Concurrence** : verrouillage pessimiste (`SELECT ... FOR UPDATE`) sur `Entry` et
+   `Client` avant toute lecture de disponible/solde suivie d'une écriture, avec ordre
+   canonique de verrouillage (tri des UUID) pour éviter les deadlocks lors du
+   verrouillage multi-entités (fusion d'entrées, soldes wallets). `IntegrityError` sur
+   les commits générant une référence unique traduite en 409 (conflit) plutôt qu'un 500.
+2. **Sécurité** : OTP de réinitialisation non loggé en clair en production ; réinitialisation
+   de mot de passe réussie désormais auditée ; Content-Security-Policy sur le frontend ;
+   rate limiting étendu (refresh token, uploads de preuves, exports de rapports) ;
+   validation des magic bytes des fichiers uploadés (Content-Type déclaré vs contenu réel) ;
+   route catch-all `/api/reports/[...path]` restreinte à des segments simples ; masquage du
+   taux privé déplacé au niveau service (ne dépend plus de chaque appelant du router) ;
+   avertissement explicite si `COOKIE_INSECURE=true` en production.
+3. **Cohérence financière** : correction du mélange de devises sur
+   `suppliers_total_balance` (agrégation par devise, comme `clients_total_balance`) ;
+   tolérance d'arrondi documentée ; asymétrie dette client (automatique)/dette
+   fournisseur (manuelle via `rebalance_supplier()`) explicitée en commentaire.
+4. **Qualité backend** : `ruff` (règles pyflakes uniquement) intégré à la CI ; tests
+   dédiés `test_private_rates.py` et `test_auth_service.py` ajoutés ; fichier de
+   verrouillage des dépendances (`requirements-lock.txt`) pour des builds reproductibles ;
+   intégration Sentry optionnelle (gated par `SENTRY_DSN`, no-op si absent).
+5. **Déploiement** : `HEALTHCHECK` Docker sur les images backend et frontend ; logs
+   d'accès Caddy activés.
+6. **Frontend** : en-têtes non responsives corrigées sur les 7 pages de détail (envois,
+   paiements, clients, fournisseurs, wallets, collaborations, opérations nationales) et
+   sur la carte de proposition de taux ; tiroir de navigation mobile de l'espace Admin
+   rendu scrollable ; correctifs d'accessibilité (`aria-label` sur les boutons de
+   suppression de ligne, association `htmlFor`/`id` sur les champs de formulaires
+   dynamiques) ; `loading.tsx`/`error.tsx` Next.js ajoutés (racine, espace entreprise,
+   espace Admin, pages de liste à fort trafic).
 
 ## Écarts restants (hors MVP ou différés délibérément, avec accord explicite)
 
 - **Notifications email/SMS/WhatsApp** : explicitement listées "hors MVP" par le cahier
   des charges lui-même (§37.2). Différé sur confirmation explicite du porteur de projet.
-- **Application mobile native** : hors MVP (§37.2), PWA responsive recommandée à la place
-  — l'interface web actuelle est responsive mais n'est pas empaquetée en PWA installable.
-  Différé sur confirmation explicite du porteur de projet.
+- **Application mobile native** : hors MVP (§37.2). L'interface web est responsive et
+  installable en PWA (manifest + service worker), ce qui couvre la recommandation
+  alternative du cahier des charges. Différé sur confirmation explicite du porteur de projet.
 - **Export PDF/Excel natif des rapports** : seul le CSV est proposé (ouvrable nativement
   dans Excel). Un rendu PDF ou un fichier `.xlsx` avec mise en forme dédiée nécessiterait
   une nouvelle dépendance (reportlab/openpyxl) non justifiée pour l'usage MVP actuel.

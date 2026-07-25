@@ -48,8 +48,8 @@ export default async function NationalOperationDetailPage({
           <ArrowLeftIcon className="size-3.5" />
           Opérations nationales
         </Link>
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <h1 className="font-mono text-lg font-semibold tracking-tight">{operation.reference}</h1>
               <p className="text-sm text-muted-foreground">
               {nationalOperationTypeLabels[operation.type as keyof typeof nationalOperationTypeLabels] ??
@@ -57,7 +57,7 @@ export default async function NationalOperationDetailPage({
               {formatDate(operation.created_at)}
               </p>
             </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={operation.status} />
             {operation.status === "validated" && <CancelOperationButton operationId={operation.id} />}
           </div>
