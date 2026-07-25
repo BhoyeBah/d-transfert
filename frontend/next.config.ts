@@ -5,6 +5,25 @@ import type { NextConfig } from "next";
 // HTTP pur (le navigateur mémorise l'en-tête et refuse ensuite tout retour en HTTP).
 const useSecureHeaders = process.env.NODE_ENV === "production" && process.env.COOKIE_INSECURE !== "true";
 
+// 'unsafe-inline' sur script/style reste nécessaire ici : Next.js injecte des scripts inline
+// pour l'hydratation et Radix UI (shadcn/ui) pose des styles inline pour le positionnement des
+// popovers/dialogs — un CSP strict à base de nonce forcerait tout le site en rendu dynamique
+// (cf. node_modules/next/dist/docs .../content-security-policy.md). Même avec 'unsafe-inline',
+// ce CSP apporte une vraie protection en défense en profondeur : aucun script/style/frame
+// externe non listé ne peut être chargé, même via une injection XSS.
+const cspHeader = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
@@ -26,6 +45,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Content-Security-Policy", value: cspHeader },
           ...(useSecureHeaders
             ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
             : []),

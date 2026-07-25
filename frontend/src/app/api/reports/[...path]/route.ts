@@ -11,6 +11,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { path } = await params;
+  // Chaque segment doit être un mot simple ou un UUID (les seules formes que prennent les
+  // routes /api/v1/reports/*) : bloque toute tentative de faire sortir l'URL cible du préfixe
+  // /api/v1/reports/ via des segments type "..". Le RBAC backend reste de toute façon la
+  // source de vérité, mais autant ne pas transmettre des segments non attendus.
+  if (path.some((segment) => !/^[a-zA-Z0-9_-]+$/.test(segment))) {
+    return new NextResponse(null, { status: 400 });
+  }
   const query = request.nextUrl.search;
 
   const response = await fetch(`${API_BASE_URL}/api/v1/reports/${path.join("/")}${query}`, {

@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.exceptions import PermissionDeniedError
 from app.core.permission_codes import PermissionCode
 from app.core.permissions import CurrentUser, get_company_scope, get_current_user, require_permission
+from app.core.rate_limit import limiter
 from app.schemas.pagination import Page, PageParams, page_params
 from app.schemas.payment import (
     PaymentApproveRequest,
@@ -139,7 +140,9 @@ async def cancel_payment(
 
 
 @router.post("/{payment_id}/proofs", response_model=ProofResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def upload_payment_proof(
+    request: Request,
     payment_id: uuid.UUID,
     file: UploadFile = File(...),
     note: str | None = Form(default=None),

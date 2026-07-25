@@ -1,11 +1,12 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.core.permission_codes import PermissionCode
 from app.core.permissions import CurrentUser, get_company_scope, require_permission
 from app.schemas.dashboard import CollaboratorBalanceSummary, DailyReportResponse
@@ -47,7 +48,9 @@ async def get_daily_report(
 
 
 @router.get("/daily/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_daily_report_csv(
+    request: Request,
     report_date: date = Query(default=None, alias="date"),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
@@ -71,7 +74,9 @@ async def get_monthly_report(
 
 
 @router.get("/monthly/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_monthly_report_csv(
+    request: Request,
     year: int = Query(...),
     month: int = Query(..., ge=1, le=12),
     company_id: uuid.UUID = Depends(get_company_scope),
@@ -95,7 +100,9 @@ async def get_transactions_report(
 
 
 @router.get("/transactions/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_transactions_report_csv(
+    request: Request,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_company_scope),
@@ -117,7 +124,9 @@ async def get_collaborator_balances_report(
 
 
 @router.get("/collaborator-balances/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_collaborator_balances_report_csv(
+    request: Request,
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
@@ -140,7 +149,9 @@ async def get_wallet_history_report(
 
 
 @router.get("/wallets/{wallet_id}/history/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_wallet_history_report_csv(
+    request: Request,
     wallet_id: uuid.UUID,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
@@ -166,7 +177,9 @@ async def get_employee_activity_report(
 
 
 @router.get("/employees/{user_id}/activity/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_employee_activity_report_csv(
+    request: Request,
     user_id: uuid.UUID,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
@@ -191,7 +204,9 @@ async def get_suppliers_report(
 
 
 @router.get("/suppliers/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_suppliers_report_csv(
+    request: Request,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_company_scope),
@@ -215,7 +230,9 @@ async def get_clients_report(
 
 
 @router.get("/clients/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_clients_report_csv(
+    request: Request,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_company_scope),
@@ -239,7 +256,9 @@ async def get_fees_report(
 
 
 @router.get("/fees/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_fees_report_csv(
+    request: Request,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_company_scope),
@@ -263,7 +282,9 @@ async def get_rejected_operations_report(
 
 
 @router.get("/rejected-operations/export", response_class=PlainTextResponse)
+@limiter.limit("20/minute")
 async def export_rejected_operations_report_csv(
+    request: Request,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_company_scope),
