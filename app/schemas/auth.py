@@ -1,8 +1,17 @@
+import re
 import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.utils.currency import is_supported_currency
+
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _validate_optional_email(value: str | None) -> str | None:
+    if value is not None and not _EMAIL_PATTERN.match(value):
+        raise ValueError("Adresse email invalide.")
+    return value
 
 
 class MeResponse(BaseModel):
@@ -10,6 +19,7 @@ class MeResponse(BaseModel):
     company_id: uuid.UUID | None
     matricule: str
     full_name: str
+    email: str | None
     is_owner: bool
     is_super_admin: bool
     permissions: list[str]
@@ -27,6 +37,8 @@ class RegisterRequest(BaseModel):
     address: str = Field(min_length=2, max_length=255)
     default_currency: str = Field(min_length=3, max_length=8)
     owner_full_name: str = Field(min_length=2, max_length=255)
+    # Optionnel : requis uniquement pour recevoir les notifications par email.
+    owner_email: str | None = Field(default=None, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     password_confirmation: str = Field(min_length=8, max_length=128)
 
@@ -36,6 +48,11 @@ class RegisterRequest(BaseModel):
         if not is_supported_currency(value):
             raise ValueError(f"Devise non supportée : {value}")
         return value.upper()
+
+    @field_validator("owner_email")
+    @classmethod
+    def _validate_owner_email(cls, value: str | None) -> str | None:
+        return _validate_optional_email(value)
 
     @field_validator("password_confirmation")
     @classmethod

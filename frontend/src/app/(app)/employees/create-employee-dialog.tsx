@@ -36,6 +36,13 @@ export function CreateEmployeeDialog() {
             )}
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="email">Email (optionnel)</Label>
+            <Input id="email" name="email" type="email" placeholder="employe@exemple.com" />
+            {state.fieldErrors?.email && (
+              <p className="text-sm text-destructive">{state.fieldErrors.email[0]}</p>
+            )}
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="password">Mot de passe</Label>
             <Input id="password" name="password" type="password" required />
             {state.fieldErrors?.password && (

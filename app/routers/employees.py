@@ -93,6 +93,7 @@ async def update_employee(
         employee_id,
         full_name=payload.full_name,
         phone=payload.phone,
+        email=payload.email,
         password=payload.password,
     )
 

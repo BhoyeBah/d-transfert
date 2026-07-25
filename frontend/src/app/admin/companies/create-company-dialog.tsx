@@ -154,6 +154,14 @@ export function CreateCompanyDialog({ supportedCurrencies }: { supportedCurrenci
               )}
             </div>
 
+            <div className="grid gap-1.5">
+              <Label htmlFor="owner_email">Email du propriétaire (optionnel)</Label>
+              <Input id="owner_email" name="owner_email" type="email" placeholder="proprietaire@exemple.com" />
+              {state.fieldErrors?.owner_email && (
+                <p className="text-sm text-destructive">{state.fieldErrors.owner_email[0]}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="password">Mot de passe</Label>

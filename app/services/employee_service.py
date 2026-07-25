@@ -22,6 +22,7 @@ async def _to_response(db: AsyncSession, user: User) -> EmployeeResponse:
         matricule=user.matricule,
         full_name=user.full_name,
         phone=user.phone,
+        email=user.email,
         is_active=user.is_active,
         permissions=sorted(PermissionCode(code) for code in permissions),
         created_at=user.created_at,
@@ -59,6 +60,7 @@ async def create_employee(
         matricule=matricule,
         full_name=payload.full_name,
         phone=payload.phone,
+        email=payload.email,
         password_hash=hash_password(payload.password),
         is_owner=False,
         is_active=True,
@@ -151,6 +153,7 @@ async def update_employee(
     employee_id: uuid.UUID,
     full_name: str | None = None,
     phone: str | None = None,
+    email: str | None = None,
     password: str | None = None,
 ) -> EmployeeResponse:
     user = await user_repository.get_by_company_and_id(db, company_id, employee_id)
@@ -164,12 +167,14 @@ async def update_employee(
         user.phone = phone
     if full_name is not None:
         user.full_name = full_name
+    if email is not None:
+        user.email = email
     if password is not None:
         user.password_hash = hash_password(password)
 
     await audit_service.log_action(
         db, company_id, acted_by_user_id, "employee.update", "user", user.id,
-        note=f"full_name={full_name!r} phone={phone!r} password={'yes' if password else 'no'}",
+        note=f"full_name={full_name!r} phone={phone!r} email={email!r} password={'yes' if password else 'no'}",
     )
     await db.commit()
     return await _to_response(db, user)

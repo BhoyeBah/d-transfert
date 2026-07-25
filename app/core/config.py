@@ -29,6 +29,21 @@ class Settings(BaseSettings):
     # Optionnel : reporting d'erreurs Sentry. Laisser vide désactive complètement
     # l'intégration (aucun appel réseau, aucune dépendance activée à l'exécution).
     sentry_dsn: str | None = None
+    # Optionnel : envoi d'email (notifications). Laisser smtp_host vide désactive le canal.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_use_tls: bool = True
+    # Optionnel : envoi SMS/WhatsApp (notifications) via l'API Twilio. Laisser
+    # twilio_account_sid vide désactive les deux canaux. twilio_sms_from et
+    # twilio_whatsapp_from sont les numéros expéditeurs Twilio (E.164), potentiellement
+    # différents (le numéro WhatsApp doit être activé pour l'API WhatsApp Business).
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_sms_from: str | None = None
+    twilio_whatsapp_from: str | None = None
 
 
 def _validate_production_settings(settings: Settings) -> None:

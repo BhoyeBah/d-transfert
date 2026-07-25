@@ -1,9 +1,18 @@
+import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.permission_codes import PermissionCode
+
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _validate_optional_email(value: str | None) -> str | None:
+    if value is not None and not _EMAIL_PATTERN.match(value):
+        raise ValueError("Adresse email invalide.")
+    return value
 
 
 class EmployeeCreateRequest(BaseModel):
@@ -11,8 +20,15 @@ class EmployeeCreateRequest(BaseModel):
 
     full_name: str = Field(min_length=2, max_length=255)
     phone: str = Field(min_length=6, max_length=32)
+    # Optionnel : requis uniquement pour recevoir les notifications par email.
+    email: str | None = Field(default=None, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     permissions: list[PermissionCode] = Field(default_factory=list)
+
+    @field_validator("email")
+    @classmethod
+    def _validate_email(cls, value: str | None) -> str | None:
+        return _validate_optional_email(value)
 
 
 class EmployeePermissionsUpdateRequest(BaseModel):
@@ -33,7 +49,13 @@ class EmployeeUpdateRequest(BaseModel):
 
     full_name: str | None = Field(default=None, min_length=2, max_length=255)
     phone: str | None = Field(default=None, min_length=6, max_length=32)
+    email: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def _validate_email(cls, value: str | None) -> str | None:
+        return _validate_optional_email(value)
 
 
 class EmployeeResponse(BaseModel):
@@ -41,6 +63,7 @@ class EmployeeResponse(BaseModel):
     matricule: str
     full_name: str
     phone: str
+    email: str | None
     is_active: bool
     permissions: list[PermissionCode]
     created_at: datetime

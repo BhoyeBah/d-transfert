@@ -51,6 +51,7 @@ async def create_company_with_owner(
     owner_full_name: str,
     password: str,
     status: CompanyStatus,
+    owner_email: str | None = None,
 ) -> tuple[Company, User]:
     if await company_repository.get_by_phone(session, company_phone) is not None:
         raise ConflictError("Ce numéro de téléphone est déjà utilisé par une entreprise.")
@@ -75,6 +76,7 @@ async def create_company_with_owner(
         matricule=company.registration_code,
         full_name=owner_full_name,
         phone=company_phone,
+        email=owner_email,
         password_hash=hash_password(password),
         is_owner=True,
         is_active=True,

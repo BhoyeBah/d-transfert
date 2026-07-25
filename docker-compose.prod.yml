@@ -43,6 +43,19 @@ services:
       REDIS_URL: ${REDIS_URL:-}
       # Optionnel : reporting d'erreurs Sentry. Laisser vide désactive l'intégration.
       SENTRY_DSN: ${SENTRY_DSN:-}
+      # Optionnel : notifications par email (SMTP). Laisser SMTP_HOST vide désactive le canal.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      # Optionnel : notifications SMS/WhatsApp via l'API Twilio. Laisser TWILIO_ACCOUNT_SID
+      # vide désactive les deux canaux.
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_SMS_FROM: ${TWILIO_SMS_FROM:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
     volumes:
       # Sans ce volume nommé, chaque redéploiement du conteneur backend efface les
       # preuves déjà uploadées (stockage local — cf. cahier des charges §36.2, qui

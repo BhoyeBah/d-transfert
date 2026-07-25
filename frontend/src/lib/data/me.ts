@@ -7,6 +7,7 @@ export type Me = {
   company_id: string | null;
   matricule: string;
   full_name: string;
+  email: string | null;
   is_owner: boolean;
   is_super_admin: boolean;
   permissions: string[];

@@ -75,6 +75,7 @@ export async function createAdminCompanyAction(
     address: formData.get("address"),
     default_currency: formData.get("default_currency"),
     owner_full_name: formData.get("owner_full_name"),
+    owner_email: formData.get("owner_email"),
     password: formData.get("password"),
     password_confirmation: formData.get("password_confirmation"),
   });
@@ -86,7 +87,9 @@ export async function createAdminCompanyAction(
   try {
     const created = await serverFetch<RegisterResponse>("/api/v1/admin/companies", {
       method: "POST",
-      body: parsed.data,
+      // owner_email vide → non envoyé plutôt que "" (le backend distingue "non renseigné" de
+      // "chaîne vide invalide").
+      body: { ...parsed.data, owner_email: parsed.data.owner_email || undefined },
     });
     revalidatePath("/admin");
     revalidatePath("/admin/companies");

@@ -24,6 +24,9 @@ class User(Base, UUIDPKMixin, TimestampMixin):
     matricule: Mapped[str] = mapped_column(String(32), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Optionnel : requis uniquement pour recevoir les notifications par email (voir
+    # notification_channel_service). Le SMS/WhatsApp réutilise `phone`.
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_owner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

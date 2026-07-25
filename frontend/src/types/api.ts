@@ -398,6 +398,7 @@ export type Employee = {
   matricule: string;
   full_name: string;
   phone: string;
+  email: string | null;
   is_active: boolean;
   permissions: string[];
   created_at: string;

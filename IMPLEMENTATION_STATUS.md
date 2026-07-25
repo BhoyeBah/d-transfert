@@ -1,7 +1,9 @@
 # État d'implémentation — D-Transfert
 
 Document de suivi de conformité par rapport au cahier des charges (`TODO.md`).
-Dernière mise à jour : rapports avancés (mensuel, transactions par période, soldes
+Dernière mise à jour : notifications email/SMS/WhatsApp (SMTP + Twilio, optionnelles),
+passe de durcissement (sécurité, concurrence, cohérence financière, déploiement,
+frontend — voir plus bas), rapports avancés (mensuel, transactions par période, soldes
 collaborateurs, historique wallet, activité employé, fournisseurs, clients, frais,
 opérations rejetées/annulées), opérations nationales multi-devises (échange réel
 avec taux de conversion), dimension type d'opération sur les taux privés, validation
@@ -30,7 +32,7 @@ réelle.
 | Clients et dettes clients | Conforme | Création rapide, consultation, mouvements. Cycle de correction fermé : la dette (ou le crédit de reliquat) créée à l'initiation d'un envoi/paiement est annulée par un mouvement inverse si l'opération est rejetée ou annulée avant validation. |
 | Fournisseurs | Conforme | Création, rééquilibrage (dette/paiement), mouvements, contrôle de devise. |
 | Preuves | Conforme | Upload, liste, téléchargement, rattachement strict à une opération (contrainte SQL `exactly_one_operation`), statut de validation (`pending`/`validated`/`rejected`) synchronisé automatiquement avec l'approbation/le rejet/l'annulation de l'opération parente. |
-| Notifications | Partiel | Notifications internes cohérentes avec les événements (demande/acceptation/rejet de collaboration, envoi/paiement en attente, rejeté, annulé, taux proposé), livrées en temps réel via SSE (badge non-lues + toasts, sans rechargement). Email/SMS/WhatsApp non branchés — explicitement "hors MVP" dans le cahier des charges lui-même (§37.2), différé sur confirmation explicite. |
+| Notifications | Conforme | Notifications internes cohérentes avec les événements (demande/acceptation/rejet de collaboration, envoi/paiement en attente, rejeté, annulé, taux proposé), livrées en temps réel via SSE (badge non-lues + toasts, sans rechargement), **et en parallèle par email (SMTP) et SMS/WhatsApp (API Twilio)** au propriétaire de l'entreprise destinataire. Chaque canal externe est optionnel et no-op tant qu'il n'est pas configuré (`SMTP_HOST` / `TWILIO_ACCOUNT_SID`) ; envoi best-effort en tâche de fond après le commit de la transaction, jamais bloquant ni source d'échec pour l'action métier. |
 | Dashboard | Conforme | **Owner** : soldes wallets, soldes collaborateurs, compteurs du jour, alertes (wallet en négatif, opération en attente > 72h). **Employé** : vue distincte et scopée à sa propre activité (`GET /dashboard/me`) — ses entrées/envois/paiements du jour, ses transactions en attente, nombre de wallets auxquels il a accès selon ses permissions. |
 | Rapports | Conforme (CSV) | Rapport journalier et mensuel, transactions par période, solde par collaborateur, historique d'un wallet, activité par employé, rapport fournisseurs, rapport clients, rapport des frais (reliquats conservés en frais), rapport des opérations rejetées/annulées — tous avec vue JSON + export CSV. **Écart assumé** : export PDF/Excel natif non implémenté (CSV s'ouvre nativement dans Excel, jugé suffisant pour le MVP ; PDF nécessiterait une dépendance de rendu supplémentaire non justifiée à ce stade). |
 | Audit logs | Conforme | Connexion, création (entrée/envoi/paiement), validation, rejet, annulation, modification de taux (proposition/rejet), modification de wallet, création d'employé, changement de permission, intervention admin — tous couverts. |
@@ -82,7 +84,7 @@ réelle.
   `test_employee_dashboard_hides_wallets_without_permission`
   (`test_dashboard_and_reports.py`)
 
-Suite complète : **275 tests passent**. `alembic upgrade head` : propre, sans dérive.
+Suite complète : **285 tests passent**. `alembic upgrade head` : propre, sans dérive.
 Build + lint + typecheck frontend : clean.
 
 ## Passe de durcissement (sécurité, robustesse, qualité)
@@ -120,10 +122,31 @@ frontend) suivi d'une correction systématique de l'ensemble des constats :
    dynamiques) ; `loading.tsx`/`error.tsx` Next.js ajoutés (racine, espace entreprise,
    espace Admin, pages de liste à fort trafic).
 
+## Notifications email/SMS/WhatsApp
+
+Implémenté après confirmation explicite du porteur de projet (initialement différé,
+§37.2 du cahier des charges).
+
+- `User.email` (nullable) : renseigné à l'inscription (owner) ou à la création/modification
+  d'un employé, exposé sur `/me` et `EmployeeResponse`. Le SMS/WhatsApp réutilise `phone`
+  (déjà obligatoire).
+- `app/services/notification_channel_service.py` : `send_email` (SMTP via `smtplib`,
+  exécuté hors boucle événementielle avec `asyncio.to_thread`), `send_sms`/`send_whatsapp`
+  (API Twilio via `httpx.AsyncClient`, préfixe `whatsapp:` sur les deux numéros pour ce
+  canal). Chaque fonction est un no-op silencieux si son canal n'est pas configuré, et
+  absorbe ses propres erreurs (loggées via `system_log_service`) sans jamais les
+  propager — un SMTP en panne ne doit jamais faire échouer un envoi/paiement.
+- Branchement dans `notification_service.notify()` : le owner de l'entreprise destinataire
+  est résolu, et le dispatch externe est mis en file au même titre que la diffusion SSE
+  existante (`session.info`), pour être déclenché uniquement `after_commit` — une
+  notification liée à une transaction qui échoue et annule tout ne doit jamais partir par
+  email/SMS. Le dispatch lui-même est planifié en tâche de fond
+  (`asyncio.get_running_loop().create_task(...)`) pour ne pas ralentir la réponse HTTP.
+- Configuration 100% optionnelle (`SMTP_HOST`, `TWILIO_ACCOUNT_SID`, ...) : absente, aucune
+  dépendance externe n'est sollicitée, comportement strictement identique à avant.
+
 ## Écarts restants (hors MVP ou différés délibérément, avec accord explicite)
 
-- **Notifications email/SMS/WhatsApp** : explicitement listées "hors MVP" par le cahier
-  des charges lui-même (§37.2). Différé sur confirmation explicite du porteur de projet.
 - **Application mobile native** : hors MVP (§37.2). L'interface web est responsive et
   installable en PWA (manifest + service worker), ce qui couvre la recommandation
   alternative du cahier des charges. Différé sur confirmation explicite du porteur de projet.

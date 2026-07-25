@@ -96,6 +96,7 @@ async def me(
         company_id=current_user.company_id,
         matricule=user.matricule,
         full_name=user.full_name,
+        email=user.email,
         is_owner=current_user.is_owner,
         is_super_admin=current_user.is_super_admin,
         permissions=sorted(current_user.permissions),

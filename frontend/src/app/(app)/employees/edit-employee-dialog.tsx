@@ -25,6 +25,7 @@ export function EditEmployeeDialog({ employee }: { employee: Employee }) {
         const result = await updateEmployeeAction(employee.id, {
           full_name: String(formData.get("full_name") ?? ""),
           phone: String(formData.get("phone") ?? ""),
+          email: String(formData.get("email") ?? ""),
           password: password || undefined,
         });
         return result.ok
@@ -43,6 +44,16 @@ export function EditEmployeeDialog({ employee }: { employee: Employee }) {
           <div className="grid gap-1.5">
             <Label htmlFor={`phone-${employee.id}`}>Téléphone</Label>
             <Input id={`phone-${employee.id}`} name="phone" defaultValue={employee.phone} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`email-${employee.id}`}>Email</Label>
+            <Input
+              id={`email-${employee.id}`}
+              name="email"
+              type="email"
+              defaultValue={employee.email ?? ""}
+              placeholder="employe@exemple.com"
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor={`password-${employee.id}`}>Nouveau mot de passe</Label>

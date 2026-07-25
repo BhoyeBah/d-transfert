@@ -16,6 +16,7 @@ export async function createEmployeeAction(
   const parsed = createEmployeeSchema.safeParse({
     full_name: formData.get("full_name"),
     phone: formData.get("phone"),
+    email: formData.get("email"),
     password: formData.get("password"),
     permissions: formData.getAll("permissions"),
   });
@@ -24,7 +25,12 @@ export async function createEmployeeAction(
   }
 
   try {
-    await serverFetch("/api/v1/employees", { method: "POST", body: parsed.data });
+    // email vide → non envoyé plutôt que "" (le backend distingue "non renseigné" de
+    // "chaîne vide invalide").
+    await serverFetch("/api/v1/employees", {
+      method: "POST",
+      body: { ...parsed.data, email: parsed.data.email || undefined },
+    });
   } catch (error) {
     if (error instanceof ApiError) {
       return { status: "error", message: error.message };
@@ -75,7 +81,7 @@ export async function setEmployeeStatusAction(employeeId: string, isActive: bool
 
 export async function updateEmployeeAction(
   employeeId: string,
-  payload: { full_name?: string; phone?: string; password?: string }
+  payload: { full_name?: string; phone?: string; email?: string; password?: string }
 ): Promise<MutationResult<Employee>> {
   const parsed = updateEmployeeSchema.safeParse(payload);
   if (!parsed.success) {
@@ -85,7 +91,7 @@ export async function updateEmployeeAction(
   try {
     const employee = await serverFetch<Employee>(`/api/v1/employees/${employeeId}`, {
       method: "PATCH",
-      body: parsed.data,
+      body: { ...parsed.data, email: parsed.data.email || undefined },
     });
     revalidatePath("/employees");
     return { ok: true, data: employee };

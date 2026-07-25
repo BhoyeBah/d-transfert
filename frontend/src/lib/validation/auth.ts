@@ -22,6 +22,7 @@ export function createRegisterSchema(supportedCurrencies: readonly string[]) {
       address: z.string().min(2, "Adresse requise.").max(255),
       default_currency: currencySchema(supportedCurrencies),
       owner_full_name: z.string().min(2, "2 caractères minimum.").max(255),
+      owner_email: z.union([z.string().email("Adresse email invalide."), z.literal("")]).optional(),
       password: z.string().min(8, "8 caractères minimum."),
       password_confirmation: z.string().min(8, "8 caractères minimum."),
     })

@@ -46,6 +46,7 @@ async def register(db: AsyncSession, payload: RegisterRequest) -> RegisterRespon
         address=payload.address,
         default_currency=payload.default_currency,
         owner_full_name=payload.owner_full_name,
+        owner_email=payload.owner_email,
         password=payload.password,
         status=CompanyStatus.PENDING if require_approval else CompanyStatus.ACTIVE,
     )
