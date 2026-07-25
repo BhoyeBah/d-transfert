@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, UnbalancedOperationError
@@ -66,9 +67,12 @@ def _entry_client_key(entry: Entry) -> tuple[str, str] | None:
 
 
 async def _load_full(
-    session: AsyncSession, company_id: uuid.UUID, entry_id: uuid.UUID
+    session: AsyncSession, company_id: uuid.UUID, entry_id: uuid.UUID, for_update: bool = False
 ) -> tuple[Entry, list[EntryLine], list[EntryAllocation]]:
-    entry = await entry_repository.get_by_company_and_id(session, company_id, entry_id)
+    if for_update:
+        entry = await entry_repository.lock_by_company_and_id(session, company_id, entry_id)
+    else:
+        entry = await entry_repository.get_by_company_and_id(session, company_id, entry_id)
     if entry is None:
         raise NotFoundError("Entrée introuvable.")
     lines = await entry_repository.get_lines(session, entry.id)
@@ -135,14 +139,18 @@ async def create_entry(
         lines.append(line_row)
 
     await audit_service.log_action(session, company_id, created_by_id, "entry.create", "entry", entry.id)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise ConflictError("Un conflit est survenu lors de la création de l'entrée, veuillez réessayer.") from exc
     return entry, lines
 
 
 async def get_entry(
-    session: AsyncSession, company_id: uuid.UUID, entry_id: uuid.UUID
+    session: AsyncSession, company_id: uuid.UUID, entry_id: uuid.UUID, for_update: bool = False
 ) -> tuple[Entry, list[EntryLine], list[EntryAllocation]]:
-    return await _load_full(session, company_id, entry_id)
+    return await _load_full(session, company_id, entry_id, for_update=for_update)
 
 
 async def list_entries(
@@ -177,11 +185,21 @@ async def merge_entries(
     if len(set(payload.entry_ids)) != len(payload.entry_ids):
         raise ConflictError("La liste des entrées à fusionner contient des doublons.")
 
+    # Verrouillage dans un ordre canonique (tri des ids) avant toute lecture : évite un
+    # interblocage si deux fusions concurrentes partagent une entrée mais la listent dans un
+    # ordre différent (même principe que le tri des wallets avant verrouillage dans
+    # create_entry / national_operation_service). L'ordre d'origine de payload.entry_ids est
+    # conservé ensuite pour construire source_entries (source_entries[0] détermine le
+    # client_name/phone reporté sur l'entrée fusionnée).
+    locked_entries: dict[uuid.UUID, tuple[Entry, list[EntryLine], list[EntryAllocation]]] = {}
+    for entry_id in sorted(set(payload.entry_ids)):
+        locked_entries[entry_id] = await _load_full(session, company_id, entry_id, for_update=True)
+
     source_entries: list[Entry] = []
     source_lines_by_entry: dict[uuid.UUID, list[EntryLine]] = {}
     reference_client_key: tuple[str, str] | None = None
     for entry_id in payload.entry_ids:
-        entry, lines, allocations = await _load_full(session, company_id, entry_id)
+        entry, lines, allocations = locked_entries[entry_id]
         if entry.status not in MERGEABLE_STATUSES:
             raise ConflictError(
                 f"L'entrée {entry.reference} ne peut pas être fusionnée (statut : {entry.status})."
@@ -249,14 +267,18 @@ async def merge_entries(
     for entry in source_entries:
         entry.merged_into_id = merged_entry.id
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise ConflictError("Un conflit est survenu lors de la fusion des entrées, veuillez réessayer.") from exc
     return merged_entry, new_lines
 
 
 async def cancel_entry(
     session: AsyncSession, company_id: uuid.UUID, created_by_id: uuid.UUID, entry_id: uuid.UUID
 ) -> tuple[Entry, list[EntryLine]]:
-    entry, lines, allocations = await _load_full(session, company_id, entry_id)
+    entry, lines, allocations = await _load_full(session, company_id, entry_id, for_update=True)
 
     if entry.merged_into_id is not None:
         raise ConflictError(

@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
@@ -118,7 +119,9 @@ async def create_payment(
     client_debt_amount = Decimal("0.00")
     reliquat_amount = Decimal("0.00")
     if payload.entry_id is not None:
-        entry, lines, allocations = await entry_service.get_entry(session, company_id, payload.entry_id)
+        entry, lines, allocations = await entry_service.get_entry(
+            session, company_id, payload.entry_id, for_update=True
+        )
         if entry.merged_into_id is not None:
             raise ConflictError(
                 f"L'entrée {entry.reference} a été fusionnée dans une autre entrée et ne peut plus être "
@@ -177,7 +180,9 @@ async def create_payment(
     if client_debt_amount > 0 or (reliquat_amount > 0 and payload.reliquat_action == "client_credit"):
         client_name = payload.client_name or (entry.client_name if entry is not None else None)
         client_phone = payload.client_phone or (entry.client_phone if entry is not None else None)
-        client = await client_service.get_or_create_client(session, company_id, client_name, client_phone)
+        client = await client_service.get_or_create_client(
+            session, company_id, client_name, client_phone, for_update=True
+        )
 
     reference = await _generate_unique_reference(session, company_id)
     payment = Payment(
@@ -262,7 +267,11 @@ async def create_payment(
         link_id=payment.id,
     )
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise ConflictError("Un conflit est survenu lors de la création du paiement, veuillez réessayer.") from exc
     return payment
 
 
@@ -372,7 +381,7 @@ async def reject_payment(
             await session.delete(allocation)
             await session.flush()
         entry, lines, allocations = await entry_service.get_entry(
-            session, payment.company_id, payment.entry_id
+            session, payment.company_id, payment.entry_id, for_update=True
         )
         entry.status = entry_service.recompute_status(lines, allocations)
 
@@ -427,7 +436,9 @@ async def cancel_payment(
         if allocation is not None:
             await session.delete(allocation)
             await session.flush()
-        entry, lines, allocations = await entry_service.get_entry(session, payment.company_id, payment.entry_id)
+        entry, lines, allocations = await entry_service.get_entry(
+            session, payment.company_id, payment.entry_id, for_update=True
+        )
         entry.status = entry_service.recompute_status(lines, allocations)
 
     if payment.client_id is not None:

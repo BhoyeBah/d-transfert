@@ -17,9 +17,17 @@ def _quantize(amount: Decimal) -> Decimal:
 
 
 async def get_or_create_client(
-    session: AsyncSession, company_id: uuid.UUID, name: str, phone: str, note: str | None = None
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    name: str,
+    phone: str,
+    note: str | None = None,
+    for_update: bool = False,
 ) -> Client:
-    existing = await client_repository.get_by_company_and_phone(session, company_id, phone)
+    if for_update:
+        existing = await client_repository.lock_by_company_and_phone(session, company_id, phone)
+    else:
+        existing = await client_repository.get_by_company_and_phone(session, company_id, phone)
     if existing is not None:
         return existing
 
@@ -75,7 +83,7 @@ async def reverse_movements_for_source(
     net = sum((movement.delta for movement in movements), Decimal("0.00"))
     if net == 0:
         return None
-    client = await get_client(session, company_id, client_id)
+    client = await get_client(session, company_id, client_id, for_update=True)
     return await apply_balance_delta(
         session, client, -net, source_type=f"{source_type}_reversal", source_id=source_id,
         currency=movements[0].currency, created_by_id=created_by_id, note=note,
@@ -92,8 +100,13 @@ async def get_balances_by_currency_for_clients(
     return await client_repository.get_balances_by_currency_for_clients(session, client_ids)
 
 
-async def get_client(session: AsyncSession, company_id: uuid.UUID, client_id: uuid.UUID) -> Client:
-    client = await client_repository.get_by_company_and_id(session, company_id, client_id)
+async def get_client(
+    session: AsyncSession, company_id: uuid.UUID, client_id: uuid.UUID, for_update: bool = False
+) -> Client:
+    if for_update:
+        client = await client_repository.lock_by_company_and_id(session, company_id, client_id)
+    else:
+        client = await client_repository.get_by_company_and_id(session, company_id, client_id)
     if client is None:
         raise NotFoundError("Client introuvable.")
     return client

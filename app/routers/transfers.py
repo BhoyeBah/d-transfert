@@ -39,13 +39,7 @@ def _require_view_access(current_user: CurrentUser = Depends(get_current_user)) 
     )
 
 
-def _serialize(transfer, viewer_company_id: uuid.UUID) -> TransferResponse:
-    response = TransferResponse.model_validate(transfer, from_attributes=True)
-    if transfer.company_id != viewer_company_id:
-        # Le taux privé appartient exclusivement à l'entreprise qui a créé l'envoi ;
-        # il ne doit jamais être révélé au collaborateur qui consulte/valide l'envoi.
-        response.private_rate_used = None
-    return response
+_serialize = transfer_service.to_response
 
 
 @router.post("", response_model=TransferResponse, status_code=status.HTTP_201_CREATED)

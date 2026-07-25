@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.exceptions import UnauthorizedError
 from app.core.security import (
     TokenType,
@@ -194,8 +195,13 @@ async def request_password_reset(db: AsyncSession, matricule: str) -> None:
     await password_reset_otp_repository.create(db, user.id, hash_password(code), expires_at)
     await db.commit()
 
-    # Canal SMS/WhatsApp réel à brancher en phase notifications (Phase 10).
-    logger.info("OTP de réinitialisation généré pour user_id=%s: %s", user.id, code)
+    # Canal SMS/WhatsApp réel à brancher en phase notifications (Phase 10). En attendant, le
+    # code n'est loggé en clair qu'en développement : un accès aux logs de production (SSH,
+    # agrégateur) ne doit jamais suffire à réinitialiser le mot de passe d'un compte.
+    if get_settings().environment == "production":
+        logger.info("OTP de réinitialisation généré pour user_id=%s", user.id)
+    else:
+        logger.info("OTP de réinitialisation généré pour user_id=%s: %s", user.id, code)
 
 
 async def reset_password(
@@ -225,6 +231,9 @@ async def reset_password(
     # `iat` est forcément antérieur à cet instant, cf. la vérification dans
     # app/core/permissions.py et refresh_tokens ci-dessus.
     user.password_changed_at = datetime.now(timezone.utc)
+    await audit_service.log_action(
+        db, user.company_id, user.id, "user.password_reset", "user", user.id
+    )
     await db.commit()
 
 

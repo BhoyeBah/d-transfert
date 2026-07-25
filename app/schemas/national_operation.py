@@ -79,6 +79,10 @@ class NationalOperationCreateRequest(BaseModel):
                     "et une devise destination (entrée nette)."
                 )
             expected_dest = (-source_total) * self.exchange_rate
+            # Tolérance volontaire d'1 centime : le montant destination est saisi manuellement
+            # par l'utilisateur (pas recalculé automatiquement), un écart d'arrondi de ce niveau
+            # entre son montant et exchange_rate * montant_source est normal et ne doit pas être
+            # rejeté comme une incohérence de saisie.
             if abs(expected_dest - dest_total) > Decimal("0.01"):
                 raise ValueError(
                     f"Montant converti incohérent avec le taux fourni : attendu {expected_dest}, obtenu {dest_total}."

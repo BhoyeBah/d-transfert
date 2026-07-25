@@ -34,7 +34,7 @@ class DashboardResponse(BaseModel):
     # Par devise : un client (ou fournisseur) peut avoir des dettes dans plusieurs devises
     # différentes, les additionner en un seul nombre n'aurait aucun sens économique.
     clients_total_balance: dict[str, Decimal]
-    suppliers_total_balance: Decimal
+    suppliers_total_balance: dict[str, Decimal]
     unread_notifications_count: int
     alerts: list[DashboardAlert]
 

@@ -19,17 +19,35 @@ _ALLOWED_CONTENT_TYPES = {
     "application/pdf": ".pdf",
 }
 
+# Signatures binaires ("magic bytes") des formats acceptés : le Content-Type déclaré par le
+# client n'est qu'une indication, jamais une garantie — un client pourrait envoyer un fichier
+# arbitraire en mentant sur son Content-Type. On vérifie donc aussi les premiers octets réels.
+def _matches_signature(content_type: str, content: bytes) -> bool:
+    if content_type == "image/jpeg":
+        return content.startswith(b"\xff\xd8\xff")
+    if content_type == "image/png":
+        return content.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/webp":
+        return content[:4] == b"RIFF" and content[8:12] == b"WEBP"
+    if content_type == "application/pdf":
+        return content.startswith(b"%PDF-")
+    return False
 
-def _validate_file(content_type: str | None, size: int) -> str:
+
+def _validate_file(content_type: str | None, content: bytes) -> str:
     if content_type not in _ALLOWED_CONTENT_TYPES:
         raise AppError(
             "Type de fichier non autorisé. Formats acceptés : JPEG, PNG, WEBP, PDF."
         )
     max_size = settings.max_upload_size_mb * 1024 * 1024
-    if size > max_size:
+    if len(content) > max_size:
         raise AppError(f"Le fichier dépasse la taille maximale autorisée ({settings.max_upload_size_mb} Mo).")
-    if size == 0:
+    if len(content) == 0:
         raise AppError("Le fichier est vide.")
+    if not _matches_signature(content_type, content):
+        raise AppError(
+            "Le contenu du fichier ne correspond pas au type déclaré. Formats acceptés : JPEG, PNG, WEBP, PDF."
+        )
     return _ALLOWED_CONTENT_TYPES[content_type]
 
 
@@ -53,7 +71,7 @@ async def upload_transfer_proof(
     note: str | None,
 ) -> Proof:
     transfer = await transfer_service.get_transfer(session, company_id, transfer_id)
-    extension = _validate_file(content_type, len(content))
+    extension = _validate_file(content_type, content)
     storage_path = _store_file(company_id, extension, content)
     proof = Proof(
         company_id=company_id,
@@ -98,7 +116,7 @@ async def upload_payment_proof(
     note: str | None,
 ) -> Proof:
     payment = await payment_service.get_payment(session, company_id, payment_id)
-    extension = _validate_file(content_type, len(content))
+    extension = _validate_file(content_type, content)
     storage_path = _store_file(company_id, extension, content)
     proof = Proof(
         company_id=company_id,

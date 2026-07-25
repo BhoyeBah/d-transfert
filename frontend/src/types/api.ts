@@ -43,10 +43,10 @@ export type DashboardResponse = {
   payments_today_count: number;
   payments_pending_count: number;
   payments_rejected_count: number;
-  // Par devise : un client peut avoir des dettes dans plusieurs devises différentes,
-  // les additionner en un seul nombre n'aurait aucun sens économique.
+  // Par devise : un client/fournisseur peut avoir des dettes dans plusieurs devises
+  // différentes, les additionner en un seul nombre n'aurait aucun sens économique.
   clients_total_balance: Record<string, string>;
-  suppliers_total_balance: string;
+  suppliers_total_balance: Record<string, string>;
   unread_notifications_count: number;
   alerts: DashboardAlert[];
 };

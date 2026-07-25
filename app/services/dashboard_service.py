@@ -149,7 +149,9 @@ async def build_dashboard(session: AsyncSession, company_id: uuid.UUID) -> Dashb
             clients_total_balance[currency] += balance
 
     suppliers = await supplier_repository.list_by_company(session, company_id)
-    suppliers_total_balance = sum((s.balance for s in suppliers), Decimal("0.00"))
+    suppliers_total_balance: dict[str, Decimal] = defaultdict(Decimal)
+    for supplier in suppliers:
+        suppliers_total_balance[supplier.currency] += supplier.balance
 
     notifications = await notification_repository.list_by_company(session, company_id)
     unread_notifications_count = sum(1 for n in notifications if not n.is_read)
@@ -167,7 +169,7 @@ async def build_dashboard(session: AsyncSession, company_id: uuid.UUID) -> Dashb
         payments_pending_count=payments_pending_count,
         payments_rejected_count=payments_rejected_count,
         clients_total_balance=dict(clients_total_balance),
-        suppliers_total_balance=suppliers_total_balance,
+        suppliers_total_balance=dict(suppliers_total_balance),
         unread_notifications_count=unread_notifications_count,
         alerts=alerts,
     )

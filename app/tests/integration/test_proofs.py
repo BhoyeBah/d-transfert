@@ -248,6 +248,20 @@ async def test_upload_rejects_disallowed_content_type(client):
     assert upload_response.status_code == 400
 
 
+async def test_upload_rejects_content_not_matching_declared_type(client):
+    collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
+    transfer_id = await _create_transfer(client, collaboration_id, token_a)
+
+    # Content-Type déclaré à "image/png" mais le contenu réel n'est pas un PNG (pas de
+    # signature binaire correspondante) : doit être rejeté malgré le Content-Type valide.
+    upload_response = await client.post(
+        f"/api/v1/transfers/{transfer_id}/proofs",
+        files={"file": ("faux.png", b"ceci n'est pas un vrai fichier PNG", "image/png")},
+        headers=_auth_headers(token_a),
+    )
+    assert upload_response.status_code == 400
+
+
 async def test_upload_rejects_oversized_file(client):
     collaboration_id, (_, token_a), _ = await _setup_accepted_collaboration(client)
     transfer_id = await _create_transfer(client, collaboration_id, token_a)
@@ -292,7 +306,7 @@ async def test_validate_file_rejects_empty_content():
     from app.core.exceptions import AppError
 
     try:
-        proof_service._validate_file("image/png", 0)
+        proof_service._validate_file("image/png", b"")
         assert False, "expected AppError for empty file"
     except AppError as exc:
         assert "vide" in exc.message

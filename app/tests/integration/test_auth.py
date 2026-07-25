@@ -2,8 +2,10 @@ import re
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import create_access_token, hash_password
+from app.models.audit_log import AuditLog
 from app.models.user import User
 
 
@@ -203,7 +205,7 @@ async def test_refresh_token_issues_new_access_token(client):
     assert response.json()["access_token"]
 
 
-async def test_password_reset_flow(client, caplog):
+async def test_password_reset_flow(client, db_session, caplog):
     register_response = await client.post("/api/v1/auth/register", json=_register_payload())
     matricule = register_response.json()["registration_code"]
 
@@ -230,6 +232,10 @@ async def test_password_reset_flow(client, caplog):
         "/api/v1/auth/login", json={"matricule": matricule, "password": "SuperSecret123!"}
     )
     assert old_password_login.status_code == 401
+
+    result = await db_session.execute(select(AuditLog).where(AuditLog.action == "user.password_reset"))
+    audit_entries = result.scalars().all()
+    assert len(audit_entries) == 1
 
     new_password_login = await client.post(
         "/api/v1/auth/login", json={"matricule": matricule, "password": "NewSecret456!"}

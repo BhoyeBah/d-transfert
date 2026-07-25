@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime, timezone
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, UnbalancedOperationError
@@ -123,7 +124,11 @@ async def create_operation(
         session, company_id, created_by_id, "national_operation.create", "national_operation", operation.id,
         note=f"type={operation_type.value}",
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise ConflictError("Un conflit est survenu lors de la création de l'opération, veuillez réessayer.") from exc
     return operation, lines
 
 
@@ -222,5 +227,9 @@ async def cancel_operation(
         session, company_id, created_by_id, "national_operation.cancel", "national_operation", operation.id,
         note=f"reversal_id={reversal.id}",
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise ConflictError("Un conflit est survenu lors de l'annulation, veuillez réessayer.") from exc
     return reversal, reversal_lines

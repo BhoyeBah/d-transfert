@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
@@ -21,7 +22,7 @@ from app.repositories import (
     wallet_repository,
 )
 from app.schemas.pagination import PageParams
-from app.schemas.transfer import TransferCreateRequest
+from app.schemas.transfer import TransferCreateRequest, TransferResponse
 from app.services import audit_service, client_service, entry_service, notification_service, wallet_service
 from app.utils.reference import daily_sequence_prefix, format_daily_reference
 
@@ -55,6 +56,16 @@ def _other_party(collaboration: Collaboration, company_id: uuid.UUID) -> uuid.UU
     if collaboration.initiator_company_id == company_id:
         return collaboration.target_company_id
     return collaboration.initiator_company_id
+
+
+def to_response(transfer: Transfer, viewer_company_id: uuid.UUID) -> TransferResponse:
+    response = TransferResponse.model_validate(transfer, from_attributes=True)
+    if transfer.company_id != viewer_company_id:
+        # Le taux privé appartient exclusivement à l'entreprise qui a créé l'envoi ; il ne doit
+        # jamais être révélé au collaborateur qui consulte/valide l'envoi. Centralisé ici (plutôt
+        # que dans le router) pour qu'aucun appelant ne puisse l'oublier.
+        response.private_rate_used = None
+    return response
 
 
 async def _get_collaboration_for_party(
@@ -149,7 +160,9 @@ async def create_transfer(
     client_debt_amount = Decimal("0.00")
     reliquat_amount = Decimal("0.00")
     if payload.entry_id is not None:
-        entry, lines, allocations = await entry_service.get_entry(session, company_id, payload.entry_id)
+        entry, lines, allocations = await entry_service.get_entry(
+            session, company_id, payload.entry_id, for_update=True
+        )
         if entry.merged_into_id is not None:
             raise ConflictError(
                 f"L'entrée {entry.reference} a été fusionnée dans une autre entrée et ne peut plus être "
@@ -197,7 +210,9 @@ async def create_transfer(
     if client_debt_amount > 0 or (reliquat_amount > 0 and payload.reliquat_action == "client_credit"):
         client_name = payload.client_name or (entry.client_name if entry is not None else None)
         client_phone = payload.client_phone or (entry.client_phone if entry is not None else None)
-        client = await client_service.get_or_create_client(session, company_id, client_name, client_phone)
+        client = await client_service.get_or_create_client(
+            session, company_id, client_name, client_phone, for_update=True
+        )
 
     reference = await _generate_unique_reference(session, company_id)
     transfer = Transfer(
@@ -283,7 +298,14 @@ async def create_transfer(
         link_id=transfer.id,
     )
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        # Collision improbable mais possible sous forte concurrence : deux requêtes simultanées
+        # de la même entreprise ont pu générer la même référence journalière avant que l'une des
+        # deux ne committe. Erreur claire et redemandable plutôt qu'une 500 brute.
+        raise ConflictError("Un conflit est survenu lors de la création de l'envoi, veuillez réessayer.") from exc
     return transfer
 
 
@@ -399,7 +421,7 @@ async def reject_transfer(
             await session.delete(allocation)
             await session.flush()
         entry, lines, allocations = await entry_service.get_entry(
-            session, transfer.company_id, transfer.entry_id
+            session, transfer.company_id, transfer.entry_id, for_update=True
         )
         entry.status = entry_service.recompute_status(lines, allocations)
 
@@ -454,7 +476,9 @@ async def cancel_transfer(
         if allocation is not None:
             await session.delete(allocation)
             await session.flush()
-        entry, lines, allocations = await entry_service.get_entry(session, transfer.company_id, transfer.entry_id)
+        entry, lines, allocations = await entry_service.get_entry(
+            session, transfer.company_id, transfer.entry_id, for_update=True
+        )
         entry.status = entry_service.recompute_status(lines, allocations)
 
     if transfer.client_id is not None:

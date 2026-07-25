@@ -17,6 +17,16 @@ export const useSecureCookies =
   process.env.NODE_ENV === "production" && process.env.COOKIE_INSECURE !== "true";
 const isProduction = useSecureCookies;
 
+if (process.env.NODE_ENV === "production" && process.env.COOKIE_INSECURE === "true") {
+  // Rappel volontairement bruyant : cette variable désactive le flag Secure sur les cookies de
+  // session en production. Si le déploiement est bien derrière HTTPS, elle doit être retirée —
+  // la laisser active affaiblit inutilement la sécurité des sessions.
+  console.warn(
+    "[D-Transfert] COOKIE_INSECURE=true est actif en production : les cookies de session " +
+      "n'ont pas le flag Secure. Retirez cette variable dès que le déploiement est derrière HTTPS."
+  );
+}
+
 function cookieOptionsFor(token: string) {
   const payload = decodeJwtPayload(token);
   const maxAge = payload ? Math.max(payload.exp - Math.floor(Date.now() / 1000), 0) : undefined;
