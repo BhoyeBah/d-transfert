@@ -39,6 +39,8 @@ class EntryMergeRequest(BaseModel):
 
     entry_ids: list[uuid.UUID] = Field(min_length=2)
     note: str | None = Field(default=None, max_length=255)
+    client_name: str | None = Field(default=None, max_length=255)
+    client_phone: str | None = Field(default=None, max_length=32)
 
 
 class EntryLineResponse(BaseModel):

@@ -56,7 +56,9 @@ export function MergeSameClientEntriesCard({
     }
 
     startTransition(async () => {
-      const result = await mergeEntriesAction(ids, `Fusion du client ${entry.client_name ?? ""}`.trim());
+      const result = await mergeEntriesAction(ids, {
+        note: `Fusion du client ${entry.client_name ?? ""}`.trim(),
+      });
       if (!result.ok) {
         toast.error(result.message);
         return;

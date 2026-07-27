@@ -39,11 +39,19 @@ export async function createEntryAction(payload: EntryFormValues): Promise<Mutat
   }
 }
 
-export async function mergeEntriesAction(entryIds: string[], note?: string): Promise<MutationResult<Entry>> {
+export async function mergeEntriesAction(
+  entryIds: string[],
+  options?: { note?: string; client_name?: string; client_phone?: string }
+): Promise<MutationResult<Entry>> {
   try {
     const entry = await serverFetch<Entry>("/api/v1/entries/merge", {
       method: "POST",
-      body: { entry_ids: entryIds, note: note || null },
+      body: {
+        entry_ids: entryIds,
+        note: options?.note || null,
+        client_name: options?.client_name || null,
+        client_phone: options?.client_phone || null,
+      },
     });
     revalidatePath("/entries");
     return { ok: true, data: entry };
