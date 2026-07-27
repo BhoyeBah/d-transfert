@@ -47,7 +47,8 @@ export function CreateEntryDialog({ wallets }: { wallets: WalletOption[] }) {
     toast.success(`Entrée ${result.data.reference} enregistrée.`);
     setOpen(false);
     reset();
-    router.push(`/entries/${result.data.id}`);
+    router.push("/entries");
+    router.refresh();
   }
 
   return (
