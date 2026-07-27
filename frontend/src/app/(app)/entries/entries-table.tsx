@@ -60,10 +60,12 @@ export function EntriesTable({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const selectedEntries = entries.filter((entry) => selected.has(entry.id));
-  const selectedClientKeys = new Set(
-    selectedEntries.map(entryClientKey).filter((key): key is string => Boolean(key))
-  );
-  const sameClientSelection = selectedEntries.length >= 2 && selectedEntries.every((entry) => entryClientKey(entry) !== null) && selectedClientKeys.size === 1;
+  const selectedClientKeys = selectedEntries.map(entryClientKey);
+  // Deux entrées sans aucun client renseigné (clé null des deux côtés) sont considérées comme
+  // "même client" pour la fusion : seul un mélange anonyme/nommé ou deux clients différents
+  // bloque la fusion.
+  const sameClientSelection =
+    selectedEntries.length >= 2 && selectedClientKeys.every((key) => key === selectedClientKeys[0]);
 
   function toggle(entryId: string) {
     setSelected((prev) => {

@@ -198,6 +198,7 @@ async def merge_entries(
     source_entries: list[Entry] = []
     source_lines_by_entry: dict[uuid.UUID, list[EntryLine]] = {}
     reference_client_key: tuple[str, str] | None = None
+    reference_client_key_set = False
     for entry_id in payload.entry_ids:
         entry, lines, allocations = locked_entries[entry_id]
         if entry.status not in MERGEABLE_STATUSES:
@@ -206,13 +207,15 @@ async def merge_entries(
             )
         if entry.merged_into_id is not None:
             raise ConflictError(f"L'entrée {entry.reference} a déjà été fusionnée.")
+        # Une entrée sans client renseigné reste fusionnable avec d'autres entrées tout aussi
+        # anonymes (client_key vaut None des deux côtés) : seul un mélange anonyme/nommé ou deux
+        # clients différents est rejeté. `reference_client_key_set` distingue "pas encore
+        # initialisé" de "initialisé à None", sinon la première entrée anonyme laisserait
+        # passer n'importe quel client ensuite.
         client_key = _entry_client_key(entry)
-        if client_key is None:
-            raise ConflictError(
-                f"L'entrée {entry.reference} ne peut pas être fusionnée sans client renseigné."
-            )
-        if reference_client_key is None:
+        if not reference_client_key_set:
             reference_client_key = client_key
+            reference_client_key_set = True
         elif client_key != reference_client_key:
             raise ConflictError(
                 "La fusion n'est autorisée que pour des entrées du même client."
