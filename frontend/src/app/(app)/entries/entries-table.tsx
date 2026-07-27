@@ -12,6 +12,7 @@ import type { SortDir } from "@/lib/data-table";
 import type { Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { SortableHeader } from "@/components/data-table/sortable-header";
 import {
   Table,
@@ -57,6 +58,8 @@ export function EntriesTable({
 }) {
   const walletNameById = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [mergeClientName, setMergeClientName] = useState("");
+  const [mergeClientPhone, setMergeClientPhone] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const selectedEntries = entries.filter((entry) => selected.has(entry.id));
@@ -66,6 +69,9 @@ export function EntriesTable({
   // bloque la fusion.
   const sameClientSelection =
     selectedEntries.length >= 2 && selectedClientKeys.every((key) => key === selectedClientKeys[0]);
+  // Des entrées enregistrées sans savoir de quel client il s'agissait peuvent être fusionnées ;
+  // le client est alors renseigné au moment de la fusion plutôt qu'à la création.
+  const selectionIsAnonymous = sameClientSelection && selectedClientKeys[0] === null;
 
   function toggle(entryId: string) {
     setSelected((prev) => {
@@ -82,13 +88,18 @@ export function EntriesTable({
       return;
     }
     startTransition(async () => {
-      const result = await mergeEntriesAction([...selected]);
+      const result = await mergeEntriesAction([...selected], {
+        client_name: mergeClientName.trim() || undefined,
+        client_phone: mergeClientPhone.trim() || undefined,
+      });
       if (!result.ok) {
         toast.error(result.message);
         return;
       }
       toast.success(`Entrées fusionnées en ${result.data.reference}.`);
       setSelected(new Set());
+      setMergeClientName("");
+      setMergeClientPhone("");
       router.refresh();
     });
   }
@@ -96,18 +107,36 @@ export function EntriesTable({
   return (
     <div className="flex flex-col gap-3">
       {selected.size >= 2 && (
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm">
-            <div>{selected.size} entrées sélectionnées</div>
-            {!sameClientSelection && (
-              <div className="text-xs text-warning">
-                La fusion est prévue pour des entrées du même client.
-              </div>
-            )}
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-card px-3 py-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm">
+              <div>{selected.size} entrées sélectionnées</div>
+              {!sameClientSelection && (
+                <div className="text-xs text-warning">
+                  La fusion est prévue pour des entrées du même client.
+                </div>
+              )}
+            </div>
+            <Button size="sm" onClick={merge} disabled={isPending || !sameClientSelection}>
+              {isPending ? "Fusion..." : "Fusionner"}
+            </Button>
           </div>
-          <Button size="sm" onClick={merge} disabled={isPending || !sameClientSelection}>
-            {isPending ? "Fusion..." : "Fusionner"}
-          </Button>
+          {selectionIsAnonymous && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                placeholder="Client (optionnel)"
+                value={mergeClientName}
+                onChange={(e) => setMergeClientName(e.target.value)}
+                aria-label="Nom du client à associer à la fusion"
+              />
+              <Input
+                placeholder="Téléphone client (optionnel)"
+                value={mergeClientPhone}
+                onChange={(e) => setMergeClientPhone(e.target.value)}
+                aria-label="Téléphone du client à associer à la fusion"
+              />
+            </div>
+          )}
         </div>
       )}
       <Table>

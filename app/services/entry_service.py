@@ -250,8 +250,11 @@ async def merge_entries(
     merged_entry = Entry(
         company_id=company_id,
         reference=reference,
-        client_name=source_entries[0].client_name,
-        client_phone=source_entries[0].client_phone,
+        # Le client peut être renseigné au moment de la fusion (cas d'entrées créées sans
+        # savoir de quel client il s'agissait) ; à défaut on reprend celui déjà porté par les
+        # entrées source.
+        client_name=payload.client_name if payload.client_name is not None else source_entries[0].client_name,
+        client_phone=payload.client_phone if payload.client_phone is not None else source_entries[0].client_phone,
         note=payload.note,
         status=EntryStatus.UNALLOCATED,
         created_by_id=created_by_id,

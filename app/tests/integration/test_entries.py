@@ -186,6 +186,36 @@ async def test_merge_allows_entries_without_client(client):
     assert merge_response.json()["available_by_currency"] == {"GNF": "15000.00"}
 
 
+async def test_merge_can_assign_client_to_anonymous_entries(client):
+    _, owner_token = await _register_and_login_owner(client)
+    cash_id = await _create_wallet(client, owner_token, "CASH")
+
+    entry_1 = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "10000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+    entry_2 = await client.post(
+        "/api/v1/entries",
+        json={"lines": [{"wallet_id": cash_id, "amount": "5000", "currency": "GNF"}]},
+        headers=_auth_headers(owner_token),
+    )
+
+    merge_response = await client.post(
+        "/api/v1/entries/merge",
+        json={
+            "entry_ids": [entry_1.json()["id"], entry_2.json()["id"]],
+            "client_name": "Client A",
+            "client_phone": "+224620000001",
+        },
+        headers=_auth_headers(owner_token),
+    )
+    assert merge_response.status_code == 201
+    merged = merge_response.json()
+    assert merged["client_name"] == "Client A"
+    assert merged["client_phone"] == "+224620000001"
+
+
 async def test_merge_rejects_mix_of_anonymous_and_named_client(client):
     _, owner_token = await _register_and_login_owner(client)
     cash_id = await _create_wallet(client, owner_token, "CASH")
