@@ -9,6 +9,39 @@ const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password", "/reset-pa
 
 const REFRESH_MARGIN_SECONDS = 60;
 
+// Le backend n'est jamais exposé directement (Caddy ne route que vers ce frontend), donc
+// sans ceci son rate limiting (login/refresh/reset) verrait la même adresse interne pour
+// tout le monde et partagerait un seul quota entre tous les utilisateurs de toutes les
+// entreprises. Caddy pose déjà X-Forwarded-For avec la vraie IP cliente ; on la relaie
+// simplement au backend, qui n'est joignable que depuis ce frontend (source de confiance).
+function clientIpHeader(request: NextRequest): Record<string, string> {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) return { "X-Forwarded-For": forwardedFor };
+  return {};
+}
+
+// 'unsafe-inline' reste nécessaire sur style-src : Radix UI (shadcn/ui) pose des styles
+// inline (attribut style="") pour le positionnement des popovers/dialogs, et un nonce ne
+// s'applique qu'aux balises <script>/<style>, jamais aux attributs style="" — cette
+// exception est donc structurelle, pas un oubli. script-src, lui, passe par un nonce généré
+// à chaque requête : Next.js l'applique automatiquement à ses propres scripts d'hydratation
+// dès qu'il détecte le motif 'nonce-...' dans l'en-tête CSP de la réponse.
+function buildCspHeader(nonce: string): string {
+  const isDev = process.env.NODE_ENV === "development";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
 function isExpiredOrExpiringSoon(token: string | undefined): boolean {
   if (!token) return true;
   const payload = decodeJwtPayload(token);
@@ -37,7 +70,7 @@ export async function proxy(request: NextRequest) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...clientIpHeader(request) },
         body: JSON.stringify({ refresh_token: refreshToken }),
         cache: "no-store",
       });
@@ -79,6 +112,9 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const cspHeader = buildCspHeader(nonce);
+
   const requestHeaders = new Headers(request.headers);
   if (refreshedAccessToken) {
     const forwardedCookie = requestHeaders.get("cookie") ?? "";
@@ -91,8 +127,11 @@ export async function proxy(request: NextRequest) {
         .join("; ")
     );
   }
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", cspHeader);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", cspHeader);
 
   if (refreshedAccessToken && refreshedRefreshToken) {
     const accessPayload = decodeJwtPayload(refreshedAccessToken);

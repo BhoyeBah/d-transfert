@@ -1,5 +1,7 @@
 import "server-only";
 
+import { headers as nextHeaders } from "next/headers";
+
 import { ApiError, UnauthenticatedError, extractErrorMessage } from "@/lib/api-error";
 import { getAccessToken } from "@/lib/session";
 
@@ -23,6 +25,15 @@ export async function serverFetch<T = unknown>(
 ): Promise<T> {
   const requestHeaders = new Headers(headers);
   requestHeaders.set("Content-Type", "application/json");
+
+  // Relaie la vraie IP cliente (posée par Caddy en amont de ce frontend) vers le backend :
+  // le backend n'étant joignable que depuis ce frontend, son rate limiting (login, reset de
+  // mot de passe...) a besoin de cette IP pour ne pas partager un seul quota entre tous les
+  // utilisateurs de toutes les entreprises (cf. proxy.ts pour le même relais côté refresh).
+  const incomingForwardedFor = (await nextHeaders()).get("x-forwarded-for");
+  if (incomingForwardedFor && !requestHeaders.has("X-Forwarded-For")) {
+    requestHeaders.set("X-Forwarded-For", incomingForwardedFor);
+  }
 
   if (!skipAuth) {
     const token = await getAccessToken();

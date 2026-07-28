@@ -1,6 +1,7 @@
 import uuid
 from pathlib import Path
 
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -11,6 +12,26 @@ from app.repositories import proof_repository, collaboration_repository
 from app.services import payment_service, transfer_service, notification_service
 
 settings = get_settings()
+
+_READ_CHUNK_SIZE = 1024 * 1024
+
+
+async def read_bounded(file: UploadFile, max_size_mb: int) -> bytes:
+    """Lit le fichier par blocs et interrompt dès que la taille max est dépassée,
+    plutôt que de charger un corps de requête arbitrairement grand en mémoire avant
+    de constater le dépassement (déni de service par épuisement mémoire)."""
+    max_size = max_size_mb * 1024 * 1024
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_READ_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_size:
+            raise AppError(f"Le fichier dépasse la taille maximale autorisée ({max_size_mb} Mo).")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 _ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",

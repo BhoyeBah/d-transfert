@@ -163,6 +163,15 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[str, str
     if not user.is_super_admin:
         await _ensure_company_active(db, user)
 
+    # Rotation à usage unique : le refresh token présenté est révoqué immédiatement après
+    # avoir servi, avant d'en émettre un nouveau. Un token volé rejoué après que le
+    # légitime propriétaire a déjà rafraîchi sera ainsi rejeté (is_revoked), au lieu de
+    # rester utilisable en parallèle jusqu'à son expiration naturelle (14 jours).
+    await revoked_token_repository.revoke(
+        db, payload["jti"], datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    )
+    await db.commit()
+
     company_id = str(user.company_id) if user.company_id else None
     return (
         create_access_token(

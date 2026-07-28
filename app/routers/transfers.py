@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.exceptions import PermissionDeniedError
 from app.core.permission_codes import PermissionCode
@@ -153,7 +154,7 @@ async def upload_transfer_proof(
     db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(_require_view_access),
 ) -> ProofResponse:
-    content = await file.read()
+    content = await proof_service.read_bounded(file, get_settings().max_upload_size_mb)
     proof = await proof_service.upload_transfer_proof(
         db,
         company_id,

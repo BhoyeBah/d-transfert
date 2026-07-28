@@ -53,6 +53,12 @@ def _validate_production_settings(settings: Settings) -> None:
             "Générez une clé forte et unique (ex. `openssl rand -hex 32`) et définissez-la via une "
             "variable d'environnement avant de démarrer l'application."
         )
+    if settings.environment == "production" and len(settings.jwt_secret_key) < 32:
+        raise RuntimeError(
+            "JWT_SECRET_KEY est trop courte pour la production (minimum 32 caractères). "
+            "Générez une clé forte (ex. `openssl rand -hex 32`) et définissez-la via une "
+            "variable d'environnement avant de démarrer l'application."
+        )
     if settings.environment == "production" and settings.super_admin_initial_password == DEFAULT_SUPER_ADMIN_PASSWORD:
         raise RuntimeError(
             "SUPER_ADMIN_INITIAL_PASSWORD est encore la valeur par défaut du dépôt alors que "

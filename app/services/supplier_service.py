@@ -100,7 +100,9 @@ async def rebalance_supplier(
     supplier_id: uuid.UUID,
     payload: SupplierRebalanceRequest,
 ) -> SupplierBalanceMovement:
-    supplier = await get_supplier(session, company_id, supplier_id)
+    supplier = await supplier_repository.lock_by_company_and_id(session, company_id, supplier_id)
+    if supplier is None:
+        raise NotFoundError("Fournisseur introuvable.")
 
     wallet = await wallet_repository.lock_by_id(session, payload.wallet_id)
     if wallet is None or wallet.company_id != company_id:

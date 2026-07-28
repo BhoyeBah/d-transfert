@@ -30,6 +30,17 @@ async def get_by_company_and_id(
     return result.scalar_one_or_none()
 
 
+async def lock_by_company_and_id(
+    session: AsyncSession, company_id: uuid.UUID, supplier_id: uuid.UUID
+) -> Supplier | None:
+    result = await session.execute(
+        select(Supplier)
+        .where(Supplier.company_id == company_id, Supplier.id == supplier_id)
+        .with_for_update()
+    )
+    return result.scalar_one_or_none()
+
+
 async def list_by_company(session: AsyncSession, company_id: uuid.UUID) -> list[Supplier]:
     result = await session.execute(
         select(Supplier).where(Supplier.company_id == company_id).order_by(Supplier.created_at.desc())

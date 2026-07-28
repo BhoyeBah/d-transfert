@@ -11,7 +11,7 @@ from app.core.config import (
 def _valid_production_settings(**overrides) -> Settings:
     defaults = dict(
         environment="production",
-        jwt_secret_key="a-real-generated-secret",
+        jwt_secret_key="a-real-generated-secret-with-plenty-of-entropy",
         super_admin_initial_password="a-real-generated-password",
     )
     defaults.update(overrides)
@@ -27,6 +27,12 @@ def test_production_with_default_secret_is_rejected():
 def test_production_with_custom_secret_is_accepted():
     settings = _valid_production_settings()
     _validate_production_settings(settings)
+
+
+def test_production_with_too_short_custom_secret_is_rejected():
+    settings = _valid_production_settings(jwt_secret_key="too-short")
+    with pytest.raises(RuntimeError):
+        _validate_production_settings(settings)
 
 
 def test_development_with_default_secret_is_accepted():

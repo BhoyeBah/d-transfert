@@ -4,6 +4,8 @@ import { getAccessToken } from "@/lib/session";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://127.0.0.1:8000";
 
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ transferId: string; proofId: string }> }
@@ -14,6 +16,12 @@ export async function GET(
   }
 
   const { transferId, proofId } = await params;
+  // Ces segments doivent être des UUID (seule forme attendue par la route backend) : bloque
+  // toute tentative de faire sortir l'URL cible du préfixe attendu via un segment malformé,
+  // même si le RBAC backend reste de toute façon la source de vérité (cf. reports/[...path]).
+  if (!UUID_RE.test(transferId) || !UUID_RE.test(proofId)) {
+    return new NextResponse(null, { status: 400 });
+  }
   const response = await fetch(`${API_BASE_URL}/api/v1/transfers/${transferId}/proofs/${proofId}/file`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
