@@ -37,6 +37,7 @@ from app.schemas.report import (
     TransactionReportRow,
     WalletMovementReportRow,
 )
+from app.services import pdf_export
 
 def rows_to_csv(rows: list[BaseModel], model_cls: type[BaseModel]) -> str:
     buffer = io.StringIO()
@@ -46,6 +47,10 @@ def rows_to_csv(rows: list[BaseModel], model_cls: type[BaseModel]) -> str:
     for row in rows:
         writer.writerow({key: ("" if value is None else str(value)) for key, value in row.model_dump().items()})
     return buffer.getvalue()
+
+
+def rows_to_pdf(rows: list[BaseModel], model_cls: type[BaseModel], title: str) -> bytes:
+    return pdf_export.rows_to_pdf(rows, model_cls, title)
 
 
 async def _aggregate_period(session: AsyncSession, company_id: uuid.UUID, date_from: date, date_to: date) -> dict:
@@ -86,25 +91,40 @@ async def build_monthly_report(
     return MonthlyReportResponse(month=f"{year:04d}-{month:02d}", **data)
 
 
+def _monthly_report_rows(report: MonthlyReportResponse) -> list[tuple[str, str]]:
+    rows = [
+        ("month", report.month),
+        ("deposits_count", str(report.deposits_count)),
+        ("withdrawals_count", str(report.withdrawals_count)),
+        ("exchanges_count", str(report.exchanges_count)),
+        ("rebalances_count", str(report.rebalances_count)),
+        ("entries_count", str(report.entries_count)),
+    ]
+    for currency, amount in report.entries_total_by_currency.items():
+        rows.append((f"entries_total_{currency}", str(amount)))
+    rows.extend(
+        [
+            ("transfers_created_count", str(report.transfers_created_count)),
+            ("transfers_approved_count", str(report.transfers_approved_count)),
+            ("transfers_rejected_count", str(report.transfers_rejected_count)),
+            ("payments_created_count", str(report.payments_created_count)),
+            ("payments_approved_count", str(report.payments_approved_count)),
+            ("payments_rejected_count", str(report.payments_rejected_count)),
+        ]
+    )
+    return rows
+
+
 def monthly_report_to_csv(report: MonthlyReportResponse) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["metric", "value"])
-    writer.writerow(["month", report.month])
-    writer.writerow(["deposits_count", report.deposits_count])
-    writer.writerow(["withdrawals_count", report.withdrawals_count])
-    writer.writerow(["exchanges_count", report.exchanges_count])
-    writer.writerow(["rebalances_count", report.rebalances_count])
-    writer.writerow(["entries_count", report.entries_count])
-    for currency, amount in report.entries_total_by_currency.items():
-        writer.writerow([f"entries_total_{currency}", amount])
-    writer.writerow(["transfers_created_count", report.transfers_created_count])
-    writer.writerow(["transfers_approved_count", report.transfers_approved_count])
-    writer.writerow(["transfers_rejected_count", report.transfers_rejected_count])
-    writer.writerow(["payments_created_count", report.payments_created_count])
-    writer.writerow(["payments_approved_count", report.payments_approved_count])
-    writer.writerow(["payments_rejected_count", report.payments_rejected_count])
+    writer.writerows(_monthly_report_rows(report))
     return buffer.getvalue()
+
+
+def monthly_report_to_pdf(report: MonthlyReportResponse) -> bytes:
+    return pdf_export.key_value_to_pdf(f"Rapport mensuel — {report.month}", _monthly_report_rows(report))
 
 
 # Pour les rapports qui fusionnent plusieurs tables (transactions, frais, opérations rejetées),

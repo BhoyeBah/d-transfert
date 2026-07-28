@@ -618,6 +618,49 @@ async def test_daily_report_excludes_operations_outside_requested_date(client):
     assert transactions.json()["items"] == []
 
 
+async def test_daily_report_pdf_export(client):
+    _, token = await _register_and_login_owner(
+        client, company_name="Entreprise PDF Journalier", company_phone="+224901400001"
+    )
+
+    pdf_response = await client.get(
+        "/api/v1/reports/daily/export?format=pdf", headers=_auth_headers(token)
+    )
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert pdf_response.content.startswith(b"%PDF")
+
+
+async def test_monthly_report_pdf_export(client):
+    from datetime import date
+
+    _, token = await _register_and_login_owner(
+        client, company_name="Entreprise PDF Mensuel", company_phone="+224901400002"
+    )
+    today = date.today()
+
+    pdf_response = await client.get(
+        f"/api/v1/reports/monthly/export?year={today.year}&month={today.month}&format=pdf",
+        headers=_auth_headers(token),
+    )
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert pdf_response.content.startswith(b"%PDF")
+
+
+async def test_transactions_report_pdf_export(client):
+    _, token = await _register_and_login_owner(
+        client, company_name="Entreprise PDF Transactions", company_phone="+224901400003"
+    )
+
+    pdf_response = await client.get(
+        "/api/v1/reports/transactions/export?format=pdf", headers=_auth_headers(token)
+    )
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert pdf_response.content.startswith(b"%PDF")
+
+
 async def test_employee_without_report_permission_forbidden(client):
     _, token = await _register_and_login_owner(
         client, company_name="Entreprise Rapports Interdits", company_phone="+224901300001"

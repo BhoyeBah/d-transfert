@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DownloadIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon } from "lucide-react";
 
 import { listEmployees } from "@/lib/data/employees";
 import {
@@ -44,14 +44,26 @@ function buildQuery(params: Record<string, string | undefined>): string {
   return query ? `?${query}` : "";
 }
 
-function ExportLink({ href }: { href: string }) {
+function appendFormat(href: string, format: "csv" | "pdf"): string {
+  return href.includes("?") ? `${href}&format=${format}` : `${href}?format=${format}`;
+}
+
+function ExportLinks({ href }: { href: string }) {
   return (
-    <Button type="button" variant="outline" size="sm" asChild>
-      <a href={href}>
-        <DownloadIcon />
-        Export CSV
-      </a>
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button type="button" variant="outline" size="sm" asChild>
+        <a href={appendFormat(href, "csv")}>
+          <DownloadIcon />
+          CSV
+        </a>
+      </Button>
+      <Button type="button" variant="outline" size="sm" asChild>
+        <a href={appendFormat(href, "pdf")}>
+          <FileTextIcon />
+          PDF
+        </a>
+      </Button>
+    </div>
   );
 }
 
@@ -159,7 +171,7 @@ export default async function ReportsPage({
             <Button type="submit" variant="outline" size="sm">
               Afficher
             </Button>
-            <ExportLink href={`/api/reports/daily/export${params.date ? `?date=${params.date}` : ""}`} />
+            <ExportLinks href={`/api/reports/daily/export${params.date ? `?date=${params.date}` : ""}`} />
           </form>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -199,7 +211,7 @@ export default async function ReportsPage({
             <Button type="submit" variant="outline" size="sm">
               Afficher
             </Button>
-            <ExportLink href={`/api/reports/monthly/export?year=${year}&month=${month}`} />
+            <ExportLinks href={`/api/reports/monthly/export?year=${year}&month=${month}`} />
           </form>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -245,7 +257,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Transactions par période</CardTitle>
-          <ExportLink href={`/api/reports/transactions/export${periodQuery}`} />
+          <ExportLinks href={`/api/reports/transactions/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
           {transactions.items.length === 0 ? (
@@ -291,7 +303,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Solde par collaborateur</CardTitle>
-          <ExportLink href="/api/reports/collaborator-balances/export" />
+          <ExportLinks href="/api/reports/collaborator-balances/export" />
         </CardHeader>
         <CardContent>
           {collaboratorBalances.length === 0 ? (
@@ -342,7 +354,7 @@ export default async function ReportsPage({
               </Button>
             </form>
             {walletId && (
-              <ExportLink href={`/api/reports/wallets/${walletId}/history/export${periodQuery}`} />
+              <ExportLinks href={`/api/reports/wallets/${walletId}/history/export${periodQuery}`} />
             )}
           </div>
         </CardHeader>
@@ -410,7 +422,7 @@ export default async function ReportsPage({
               </Button>
             </form>
             {employeeId && (
-              <ExportLink href={`/api/reports/employees/${employeeId}/activity/export${periodQuery}`} />
+              <ExportLinks href={`/api/reports/employees/${employeeId}/activity/export${periodQuery}`} />
             )}
           </div>
         </CardHeader>
@@ -454,7 +466,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Rapport fournisseurs</CardTitle>
-          <ExportLink href={`/api/reports/suppliers/export${periodQuery}`} />
+          <ExportLinks href={`/api/reports/suppliers/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
           {suppliers.items.length === 0 ? (
@@ -496,7 +508,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Rapport clients</CardTitle>
-          <ExportLink href={`/api/reports/clients/export${periodQuery}`} />
+          <ExportLinks href={`/api/reports/clients/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
           {clients.items.length === 0 ? (
@@ -538,7 +550,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Rapport des frais</CardTitle>
-          <ExportLink href={`/api/reports/fees/export${periodQuery}`} />
+          <ExportLinks href={`/api/reports/fees/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
           {fees.items.length === 0 ? (
@@ -578,7 +590,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Opérations rejetées / annulées</CardTitle>
-          <ExportLink href={`/api/reports/rejected-operations/export${periodQuery}`} />
+          <ExportLinks href={`/api/reports/rejected-operations/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
           {rejectedOperations.items.length === 0 ? (

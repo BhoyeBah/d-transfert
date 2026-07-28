@@ -29,12 +29,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new NextResponse(null, { status: response.status });
   }
 
-  const body = await response.text();
+  const contentType = response.headers.get("content-type") ?? "text/csv";
+  const extension = contentType.includes("pdf") ? "pdf" : "csv";
+  const body = await response.arrayBuffer();
   return new NextResponse(body, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv",
-      "Content-Disposition": response.headers.get("content-disposition") ?? "attachment; filename=rapport.csv",
+      "Content-Type": contentType,
+      "Content-Disposition":
+        response.headers.get("content-disposition") ?? `attachment; filename=rapport.${extension}`,
     },
   });
 }

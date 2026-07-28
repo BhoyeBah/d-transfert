@@ -32,6 +32,7 @@ from app.schemas.dashboard import (
     DashboardResponse,
     EmployeeDashboardResponse,
 )
+from app.services import pdf_export
 
 PENDING_ALERT_THRESHOLD_HOURS = 72
 
@@ -246,22 +247,37 @@ async def build_daily_report(session: AsyncSession, company_id: uuid.UUID, repor
     )
 
 
+def _daily_report_rows(report: DailyReportResponse) -> list[tuple[str, str]]:
+    rows = [
+        ("date", report.date),
+        ("deposits_count", str(report.deposits_count)),
+        ("withdrawals_count", str(report.withdrawals_count)),
+        ("exchanges_count", str(report.exchanges_count)),
+        ("rebalances_count", str(report.rebalances_count)),
+        ("entries_count", str(report.entries_count)),
+    ]
+    for currency, amount in report.entries_total_by_currency.items():
+        rows.append((f"entries_total_{currency}", str(amount)))
+    rows.extend(
+        [
+            ("transfers_created_count", str(report.transfers_created_count)),
+            ("transfers_approved_count", str(report.transfers_approved_count)),
+            ("transfers_rejected_count", str(report.transfers_rejected_count)),
+            ("payments_created_count", str(report.payments_created_count)),
+            ("payments_approved_count", str(report.payments_approved_count)),
+            ("payments_rejected_count", str(report.payments_rejected_count)),
+        ]
+    )
+    return rows
+
+
 def daily_report_to_csv(report: DailyReportResponse) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["metric", "value"])
-    writer.writerow(["date", report.date])
-    writer.writerow(["deposits_count", report.deposits_count])
-    writer.writerow(["withdrawals_count", report.withdrawals_count])
-    writer.writerow(["exchanges_count", report.exchanges_count])
-    writer.writerow(["rebalances_count", report.rebalances_count])
-    writer.writerow(["entries_count", report.entries_count])
-    for currency, amount in report.entries_total_by_currency.items():
-        writer.writerow([f"entries_total_{currency}", amount])
-    writer.writerow(["transfers_created_count", report.transfers_created_count])
-    writer.writerow(["transfers_approved_count", report.transfers_approved_count])
-    writer.writerow(["transfers_rejected_count", report.transfers_rejected_count])
-    writer.writerow(["payments_created_count", report.payments_created_count])
-    writer.writerow(["payments_approved_count", report.payments_approved_count])
-    writer.writerow(["payments_rejected_count", report.payments_rejected_count])
+    writer.writerows(_daily_report_rows(report))
     return buffer.getvalue()
+
+
+def daily_report_to_pdf(report: DailyReportResponse) -> bytes:
+    return pdf_export.key_value_to_pdf(f"Rapport journalier — {report.date}", _daily_report_rows(report))
