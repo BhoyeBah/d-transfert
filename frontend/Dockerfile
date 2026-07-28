@@ -14,7 +14,8 @@ RUN npm prune --omit=dev
 
 FROM base AS runner
 ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0
 
 WORKDIR /app
 
