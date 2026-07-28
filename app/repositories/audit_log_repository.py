@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime, time
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,4 +74,26 @@ async def list_by_employee(
         .order_by(AuditLog.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def list_by_employee_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    user_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[list[AuditLog], int]:
+    """Pour le rapport d'activité employé : filtre par employé et par période directement en
+    SQL au lieu de charger tout le journal d'audit de l'entreprise puis filtrer en Python.
+    """
+    stmt = select(AuditLog).where(AuditLog.company_id == company_id, AuditLog.user_id == user_id)
+    if start_date:
+        stmt = stmt.where(AuditLog.created_at >= start_date)
+    if end_date:
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(AuditLog.created_at <= end_dt)
+    stmt = stmt.order_by(AuditLog.created_at.desc())
+    return await paginate(session, stmt, page, page_size)
 

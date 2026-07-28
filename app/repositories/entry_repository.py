@@ -1,4 +1,6 @@
 import uuid
+from datetime import date, datetime, time
+from decimal import Decimal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +61,35 @@ async def list_by_company(session: AsyncSession, company_id: uuid.UUID) -> list[
         select(Entry).where(Entry.company_id == company_id).order_by(Entry.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def aggregate_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[int, dict[str, Decimal]]:
+    """Pour le rapport journalier/mensuel : compte les entrées et somme leurs lignes par devise
+    directement en SQL, au lieu de charger tout l'historique de l'entreprise (avec une requête
+    de lignes par entrée) puis agréger en Python.
+    """
+    date_filters = []
+    if start_date:
+        date_filters.append(Entry.created_at >= start_date)
+    if end_date:
+        date_filters.append(Entry.created_at <= datetime.combine(end_date, time.max))
+
+    count_stmt = select(func.count()).select_from(Entry).where(Entry.company_id == company_id, *date_filters)
+    count = int((await session.execute(count_stmt)).scalar_one())
+
+    sum_stmt = (
+        select(EntryLine.currency, func.sum(EntryLine.amount))
+        .join(Entry, Entry.id == EntryLine.entry_id)
+        .where(Entry.company_id == company_id, *date_filters)
+        .group_by(EntryLine.currency)
+    )
+    sums = {currency: amount for currency, amount in (await session.execute(sum_stmt)).all()}
+    return count, sums
 
 
 async def list_by_company_page(

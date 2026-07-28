@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime, time
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,3 +97,30 @@ async def list_movements(session: AsyncSession, supplier_id: uuid.UUID) -> list[
         .order_by(SupplierBalanceMovement.created_at)
     )
     return list(result.scalars().all())
+
+
+async def list_movements_for_company_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[list[tuple[SupplierBalanceMovement, str]], int]:
+    """Pour le rapport fournisseurs : une seule requête filtrée par company_id/période et
+    paginée, au lieu de boucler sur chaque fournisseur pour charger ses mouvements (N+1).
+    """
+    stmt = (
+        select(SupplierBalanceMovement, Supplier.name)
+        .join(Supplier, Supplier.id == SupplierBalanceMovement.supplier_id)
+        .where(SupplierBalanceMovement.company_id == company_id)
+    )
+    if start_date:
+        stmt = stmt.where(SupplierBalanceMovement.created_at >= start_date)
+    if end_date:
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(SupplierBalanceMovement.created_at <= end_dt)
+    stmt = stmt.order_by(SupplierBalanceMovement.created_at.desc())
+    total = (await session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    result = await session.execute(stmt.offset((page - 1) * page_size).limit(page_size))
+    return list(result.all()), int(total)

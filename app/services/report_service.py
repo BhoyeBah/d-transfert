@@ -1,16 +1,14 @@
 import csv
 import io
 import uuid
-from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import date, timedelta
 
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.models.collaboration import CollaborationStatus
-from app.models.national_operation import NationalOperationStatus, NationalOperationType
+from app.models.national_operation import NationalOperationType
 from app.models.payment import PaymentStatus
 from app.models.transfer import TransferStatus
 from app.repositories import (
@@ -40,15 +38,6 @@ from app.schemas.report import (
     WalletMovementReportRow,
 )
 
-def _in_period(created_at: datetime, date_from: date | None, date_to: date | None) -> bool:
-    day = created_at.astimezone(timezone.utc).date()
-    if date_from is not None and day < date_from:
-        return False
-    if date_to is not None and day > date_to:
-        return False
-    return True
-
-
 def rows_to_csv(rows: list[BaseModel], model_cls: type[BaseModel]) -> str:
     buffer = io.StringIO()
     fieldnames = list(model_cls.model_fields.keys())
@@ -60,36 +49,31 @@ def rows_to_csv(rows: list[BaseModel], model_cls: type[BaseModel]) -> str:
 
 
 async def _aggregate_period(session: AsyncSession, company_id: uuid.UUID, date_from: date, date_to: date) -> dict:
-    national_operations = await national_operation_repository.list_by_company(session, company_id)
-    period_operations = [op for op in national_operations if _in_period(op.created_at, date_from, date_to)]
-
-    entries = await entry_repository.list_by_company(session, company_id)
-    period_entries = [entry for entry in entries if _in_period(entry.created_at, date_from, date_to)]
-    entries_total_by_currency: dict[str, Decimal] = defaultdict(Decimal)
-    for entry in period_entries:
-        lines = await entry_repository.get_lines(session, entry.id)
-        for line in lines:
-            entries_total_by_currency[line.currency] += line.amount
-
-    transfers = await transfer_repository.list_for_company(session, company_id)
-    period_transfers = [t for t in transfers if _in_period(t.created_at, date_from, date_to)]
-
-    payments = await payment_repository.list_for_company(session, company_id)
-    period_payments = [p for p in payments if _in_period(p.created_at, date_from, date_to)]
+    # Agrégats calculés directement en SQL (COUNT/SUM/GROUP BY) plutôt qu'en chargeant tout
+    # l'historique de l'entreprise pour compter en Python — ne scale pas avec des années
+    # d'historique sinon.
+    operation_counts = await national_operation_repository.count_by_type_in_period(
+        session, company_id, date_from, date_to
+    )
+    entries_count, entries_total_by_currency = await entry_repository.aggregate_in_period(
+        session, company_id, date_from, date_to
+    )
+    transfer_counts = await transfer_repository.count_by_status_in_period(session, company_id, date_from, date_to)
+    payment_counts = await payment_repository.count_by_status_in_period(session, company_id, date_from, date_to)
 
     return {
-        "deposits_count": sum(1 for op in period_operations if op.type == NationalOperationType.DEPOSIT),
-        "withdrawals_count": sum(1 for op in period_operations if op.type == NationalOperationType.WITHDRAWAL),
-        "exchanges_count": sum(1 for op in period_operations if op.type == NationalOperationType.EXCHANGE),
-        "rebalances_count": sum(1 for op in period_operations if op.type == NationalOperationType.REBALANCE),
-        "entries_count": len(period_entries),
-        "entries_total_by_currency": dict(entries_total_by_currency),
-        "transfers_created_count": len(period_transfers),
-        "transfers_approved_count": sum(1 for t in period_transfers if t.status == TransferStatus.APPROVED),
-        "transfers_rejected_count": sum(1 for t in period_transfers if t.status == TransferStatus.REJECTED),
-        "payments_created_count": len(period_payments),
-        "payments_approved_count": sum(1 for p in period_payments if p.status == PaymentStatus.APPROVED),
-        "payments_rejected_count": sum(1 for p in period_payments if p.status == PaymentStatus.REJECTED),
+        "deposits_count": operation_counts.get(NationalOperationType.DEPOSIT.value, 0),
+        "withdrawals_count": operation_counts.get(NationalOperationType.WITHDRAWAL.value, 0),
+        "exchanges_count": operation_counts.get(NationalOperationType.EXCHANGE.value, 0),
+        "rebalances_count": operation_counts.get(NationalOperationType.REBALANCE.value, 0),
+        "entries_count": entries_count,
+        "entries_total_by_currency": entries_total_by_currency,
+        "transfers_created_count": sum(transfer_counts.values()),
+        "transfers_approved_count": transfer_counts.get(TransferStatus.APPROVED.value, 0),
+        "transfers_rejected_count": transfer_counts.get(TransferStatus.REJECTED.value, 0),
+        "payments_created_count": sum(payment_counts.values()),
+        "payments_approved_count": payment_counts.get(PaymentStatus.APPROVED.value, 0),
+        "payments_rejected_count": payment_counts.get(PaymentStatus.REJECTED.value, 0),
     }
 
 
@@ -123,58 +107,82 @@ def monthly_report_to_csv(report: MonthlyReportResponse) -> str:
     return buffer.getvalue()
 
 
+# Pour les rapports qui fusionnent plusieurs tables (transactions, frais, opérations rejetées),
+# chaque source est bornée par la période demandée directement en SQL (jamais l'historique
+# complet de l'entreprise), puis les résultats sont fusionnés/triés/paginés en Python — un vrai
+# UNION SQL paginé sur des tables hétérogènes serait disproportionné pour ce volume de données.
+_MERGE_FETCH_CAP = 2000
+# Borne dure sur les exports CSV : un export demande "tout" pour la période plutôt qu'une page,
+# mais doit rester borné pour ne pas matérialiser un CSV de taille arbitraire.
+CSV_EXPORT_MAX_ROWS = 5000
+
+
+def _paginate_rows(rows: list, page: int, page_size: int) -> tuple[list, int]:
+    total = len(rows)
+    start = (page - 1) * page_size
+    return rows[start : start + page_size], total
+
+
 async def build_transactions_report(
-    session: AsyncSession, company_id: uuid.UUID, date_from: date | None, date_to: date | None
-) -> list[TransactionReportRow]:
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[TransactionReportRow], int]:
     rows: list[TransactionReportRow] = []
 
-    transfers = await transfer_repository.list_for_company(session, company_id)
+    transfers, _ = await transfer_repository.list_for_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to
+    )
     for transfer in transfers:
-        if _in_period(transfer.created_at, date_from, date_to):
-            rows.append(
-                TransactionReportRow(
-                    kind="transfer",
-                    reference=transfer.reference,
-                    type_or_mode=transfer.send_mode.value,
-                    amount=transfer.amount,
-                    currency=transfer.currency,
-                    status=transfer.status.value,
-                    created_at=transfer.created_at,
-                )
+        rows.append(
+            TransactionReportRow(
+                kind="transfer",
+                reference=transfer.reference,
+                type_or_mode=transfer.send_mode.value,
+                amount=transfer.amount,
+                currency=transfer.currency,
+                status=transfer.status.value,
+                created_at=transfer.created_at,
             )
+        )
 
-    payments = await payment_repository.list_for_company(session, company_id)
+    payments, _ = await payment_repository.list_for_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to
+    )
     for payment in payments:
-        if _in_period(payment.created_at, date_from, date_to):
-            rows.append(
-                TransactionReportRow(
-                    kind="payment",
-                    reference=payment.reference,
-                    type_or_mode="payment",
-                    amount=payment.amount,
-                    currency=payment.currency,
-                    status=payment.status.value,
-                    created_at=payment.created_at,
-                )
+        rows.append(
+            TransactionReportRow(
+                kind="payment",
+                reference=payment.reference,
+                type_or_mode="payment",
+                amount=payment.amount,
+                currency=payment.currency,
+                status=payment.status.value,
+                created_at=payment.created_at,
             )
+        )
 
-    operations = await national_operation_repository.list_by_company(session, company_id)
+    operations, _ = await national_operation_repository.list_by_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to
+    )
     for operation in operations:
-        if _in_period(operation.created_at, date_from, date_to):
-            rows.append(
-                TransactionReportRow(
-                    kind="national_operation",
-                    reference=operation.reference,
-                    type_or_mode=operation.type.value,
-                    amount=None,
-                    currency=None,
-                    status=operation.status.value,
-                    created_at=operation.created_at,
-                )
+        rows.append(
+            TransactionReportRow(
+                kind="national_operation",
+                reference=operation.reference,
+                type_or_mode=operation.type.value,
+                amount=None,
+                currency=None,
+                status=operation.status.value,
+                created_at=operation.created_at,
             )
+        )
 
     rows.sort(key=lambda row: row.created_at)
-    return rows
+    return _paginate_rows(rows, page, page_size)
 
 
 async def build_collaborator_balances_report(
@@ -215,12 +223,16 @@ async def build_wallet_history_report(
     wallet_id: uuid.UUID,
     date_from: date | None,
     date_to: date | None,
-) -> list[WalletMovementReportRow]:
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[WalletMovementReportRow], int]:
     wallet = await wallet_repository.get_by_company_and_id(session, company_id, wallet_id)
     if wallet is None:
         raise NotFoundError("Wallet introuvable.")
-    movements = await wallet_movement_repository.list_by_wallet(session, wallet_id)
-    return [
+    movements, total = await wallet_movement_repository.list_by_wallet_in_period(
+        session, wallet_id, page, page_size, date_from, date_to
+    )
+    rows = [
         WalletMovementReportRow(
             id=movement.id,
             direction=movement.direction.value,
@@ -234,8 +246,8 @@ async def build_wallet_history_report(
             created_at=movement.created_at,
         )
         for movement in movements
-        if _in_period(movement.created_at, date_from, date_to)
     ]
+    return rows, total
 
 
 async def build_employee_activity_report(
@@ -244,12 +256,16 @@ async def build_employee_activity_report(
     user_id: uuid.UUID,
     date_from: date | None,
     date_to: date | None,
-) -> list[EmployeeActivityRow]:
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[EmployeeActivityRow], int]:
     employee = await user_repository.get_by_company_and_id(session, company_id, user_id)
     if employee is None:
         raise NotFoundError("Employé introuvable.")
-    logs = await audit_log_repository.list_by_company(session, company_id)
-    return [
+    logs, total = await audit_log_repository.list_by_employee_in_period(
+        session, company_id, user_id, page, page_size, date_from, date_to
+    )
+    rows = [
         EmployeeActivityRow(
             id=log.id,
             action=log.action,
@@ -259,137 +275,153 @@ async def build_employee_activity_report(
             created_at=log.created_at,
         )
         for log in logs
-        if log.user_id == user_id and _in_period(log.created_at, date_from, date_to)
     ]
+    return rows, total
 
 
 async def build_supplier_report(
-    session: AsyncSession, company_id: uuid.UUID, date_from: date | None, date_to: date | None
-) -> list[SupplierMovementReportRow]:
-    suppliers = await supplier_repository.list_by_company(session, company_id)
-    rows: list[SupplierMovementReportRow] = []
-    for supplier in suppliers:
-        movements = await supplier_repository.list_movements(session, supplier.id)
-        for movement in movements:
-            if _in_period(movement.created_at, date_from, date_to):
-                rows.append(
-                    SupplierMovementReportRow(
-                        id=movement.id,
-                        supplier_id=supplier.id,
-                        supplier_name=supplier.name,
-                        reference=movement.reference,
-                        type=movement.type.value,
-                        amount=movement.amount,
-                        balance_after=movement.balance_after,
-                        created_at=movement.created_at,
-                    )
-                )
-    rows.sort(key=lambda row: row.created_at)
-    return rows
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[SupplierMovementReportRow], int]:
+    results, total = await supplier_repository.list_movements_for_company_in_period(
+        session, company_id, page, page_size, date_from, date_to
+    )
+    rows = [
+        SupplierMovementReportRow(
+            id=movement.id,
+            supplier_id=movement.supplier_id,
+            supplier_name=supplier_name,
+            reference=movement.reference,
+            type=movement.type.value,
+            amount=movement.amount,
+            balance_after=movement.balance_after,
+            created_at=movement.created_at,
+        )
+        for movement, supplier_name in results
+    ]
+    return rows, total
 
 
 async def build_client_report(
-    session: AsyncSession, company_id: uuid.UUID, date_from: date | None, date_to: date | None
-) -> list[ClientMovementReportRow]:
-    clients = await client_repository.list_by_company(session, company_id)
-    rows: list[ClientMovementReportRow] = []
-    for client in clients:
-        movements = await client_repository.list_movements(session, client.id)
-        for movement in movements:
-            if _in_period(movement.created_at, date_from, date_to):
-                rows.append(
-                    ClientMovementReportRow(
-                        id=movement.id,
-                        client_id=client.id,
-                        client_name=client.name,
-                        delta=movement.delta,
-                        balance_after=movement.balance_after,
-                        source_type=movement.source_type,
-                        created_at=movement.created_at,
-                    )
-                )
-    rows.sort(key=lambda row: row.created_at)
-    return rows
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[ClientMovementReportRow], int]:
+    results, total = await client_repository.list_movements_for_company_in_period(
+        session, company_id, page, page_size, date_from, date_to
+    )
+    rows = [
+        ClientMovementReportRow(
+            id=movement.id,
+            client_id=movement.client_id,
+            client_name=client_name,
+            delta=movement.delta,
+            balance_after=movement.balance_after,
+            source_type=movement.source_type,
+            created_at=movement.created_at,
+        )
+        for movement, client_name in results
+    ]
+    return rows, total
 
 
 async def build_fees_report(
-    session: AsyncSession, company_id: uuid.UUID, date_from: date | None, date_to: date | None
-) -> list[FeeReportRow]:
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[FeeReportRow], int]:
     rows: list[FeeReportRow] = []
 
-    transfers = await transfer_repository.list_for_company(session, company_id)
+    transfers, _ = await transfer_repository.list_for_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to, only_with_fee=True
+    )
     for transfer in transfers:
-        if transfer.fee_amount and _in_period(transfer.created_at, date_from, date_to):
-            rows.append(
-                FeeReportRow(
-                    source_type="transfer",
-                    source_id=transfer.id,
-                    amount=transfer.fee_amount,
-                    currency=transfer.currency,
-                    created_at=transfer.created_at,
-                )
+        rows.append(
+            FeeReportRow(
+                source_type="transfer",
+                source_id=transfer.id,
+                amount=transfer.fee_amount,
+                currency=transfer.currency,
+                created_at=transfer.created_at,
             )
+        )
 
-    payments = await payment_repository.list_for_company(session, company_id)
+    payments, _ = await payment_repository.list_for_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to, only_with_fee=True
+    )
     for payment in payments:
-        if payment.fee_amount and _in_period(payment.created_at, date_from, date_to):
-            rows.append(
-                FeeReportRow(
-                    source_type="payment",
-                    source_id=payment.id,
-                    amount=payment.fee_amount,
-                    currency=payment.currency,
-                    created_at=payment.created_at,
-                )
+        rows.append(
+            FeeReportRow(
+                source_type="payment",
+                source_id=payment.id,
+                amount=payment.fee_amount,
+                currency=payment.currency,
+                created_at=payment.created_at,
             )
+        )
 
     rows.sort(key=lambda row: row.created_at)
-    return rows
+    return _paginate_rows(rows, page, page_size)
 
 
 async def build_rejected_operations_report(
-    session: AsyncSession, company_id: uuid.UUID, date_from: date | None, date_to: date | None
-) -> list[RejectedOperationReportRow]:
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    date_from: date | None,
+    date_to: date | None,
+    page: int = 1,
+    page_size: int = CSV_EXPORT_MAX_ROWS,
+) -> tuple[list[RejectedOperationReportRow], int]:
     rows: list[RejectedOperationReportRow] = []
 
-    transfers = await transfer_repository.list_for_company(session, company_id)
+    transfers, _ = await transfer_repository.list_for_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to, only_rejected=True
+    )
     for transfer in transfers:
-        reference_date = transfer.rejected_at or transfer.created_at
-        if transfer.status == TransferStatus.REJECTED and _in_period(reference_date, date_from, date_to):
-            rows.append(
-                RejectedOperationReportRow(
-                    kind="transfer",
-                    reference=transfer.reference,
-                    reason=transfer.rejection_reason,
-                    created_at=reference_date,
-                )
+        rows.append(
+            RejectedOperationReportRow(
+                kind="transfer",
+                reference=transfer.reference,
+                reason=transfer.rejection_reason,
+                created_at=transfer.rejected_at or transfer.created_at,
             )
+        )
 
-    payments = await payment_repository.list_for_company(session, company_id)
+    payments, _ = await payment_repository.list_for_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to, only_rejected=True
+    )
     for payment in payments:
-        reference_date = payment.rejected_at or payment.created_at
-        if payment.status == PaymentStatus.REJECTED and _in_period(reference_date, date_from, date_to):
-            rows.append(
-                RejectedOperationReportRow(
-                    kind="payment",
-                    reference=payment.reference,
-                    reason=payment.rejection_reason,
-                    created_at=reference_date,
-                )
+        rows.append(
+            RejectedOperationReportRow(
+                kind="payment",
+                reference=payment.reference,
+                reason=payment.rejection_reason,
+                created_at=payment.rejected_at or payment.created_at,
             )
+        )
 
-    operations = await national_operation_repository.list_by_company(session, company_id)
+    operations, _ = await national_operation_repository.list_by_company_in_period(
+        session, company_id, 1, _MERGE_FETCH_CAP, date_from, date_to, only_cancelled=True
+    )
     for operation in operations:
-        reference_date = operation.cancelled_at or operation.created_at
-        if operation.status == NationalOperationStatus.CANCELLED and _in_period(reference_date, date_from, date_to):
-            rows.append(
-                RejectedOperationReportRow(
-                    kind="national_operation",
-                    reference=operation.reference,
-                    reason=None,
-                    created_at=reference_date,
-                )
+        rows.append(
+            RejectedOperationReportRow(
+                kind="national_operation",
+                reference=operation.reference,
+                reason=None,
+                created_at=operation.cancelled_at or operation.created_at,
             )
+        )
 
     rows.sort(key=lambda row: row.created_at)
-    return rows
+    return _paginate_rows(rows, page, page_size)

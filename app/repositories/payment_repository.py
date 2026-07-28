@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.collaboration import Collaboration
-from app.models.payment import Payment, PaymentStatusHistory
+from app.models.payment import Payment, PaymentStatus, PaymentStatusHistory
 from app.utils.pagination import paginate
 
 _SORTABLE_COLUMNS = {
@@ -101,6 +101,79 @@ async def list_for_company_page(
         )
     column = _SORTABLE_COLUMNS.get(sort_by, Payment.created_at)
     stmt = stmt.order_by(column.asc() if sort_dir == "asc" else column.desc())
+    return await paginate(session, stmt, page, page_size)
+
+
+async def count_by_status_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict[str, int]:
+    """Pour le rapport journalier/mensuel : compte par statut directement en SQL (GROUP BY)
+    au lieu de charger tout l'historique de l'entreprise puis compter en Python.
+    """
+    stmt = (
+        select(Payment.status, func.count())
+        .join(Collaboration, Collaboration.id == Payment.collaboration_id)
+        .where(
+            or_(
+                Collaboration.initiator_company_id == company_id,
+                Collaboration.target_company_id == company_id,
+            )
+        )
+    )
+    if start_date:
+        stmt = stmt.where(Payment.created_at >= start_date)
+    if end_date:
+        from datetime import datetime, time
+
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(Payment.created_at <= end_dt)
+    stmt = stmt.group_by(Payment.status)
+    result = await session.execute(stmt)
+    return {status.value: count for status, count in result.all()}
+
+
+async def list_for_company_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    only_with_fee: bool = False,
+    only_rejected: bool = False,
+) -> tuple[list[Payment], int]:
+    """Variante de list_for_company_page pour les rapports : filtre par période directement en
+    SQL (au lieu de charger tout l'historique de l'entreprise puis filtrer en Python), avec deux
+    filtres optionnels propres aux rapports frais/opérations rejetées.
+    """
+    stmt = (
+        select(Payment)
+        .join(Collaboration, Collaboration.id == Payment.collaboration_id)
+        .where(
+            or_(
+                Collaboration.initiator_company_id == company_id,
+                Collaboration.target_company_id == company_id,
+            )
+        )
+    )
+    if only_with_fee:
+        stmt = stmt.where(Payment.fee_amount.isnot(None), Payment.fee_amount > 0)
+    if only_rejected:
+        stmt = stmt.where(Payment.status == PaymentStatus.REJECTED)
+        reference_date = func.coalesce(Payment.rejected_at, Payment.created_at)
+    else:
+        reference_date = Payment.created_at
+    if start_date:
+        stmt = stmt.where(reference_date >= start_date)
+    if end_date:
+        from datetime import datetime, time
+
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(reference_date <= end_dt)
+    stmt = stmt.order_by(reference_date.desc())
     return await paginate(session, stmt, page, page_size)
 
 

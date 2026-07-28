@@ -1,9 +1,10 @@
 import uuid
+from datetime import date, datetime, time
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.national_operation import NationalOperation
+from app.models.national_operation import NationalOperation, NationalOperationStatus
 from app.models.national_operation_line import NationalOperationLine
 from app.utils.pagination import paginate
 
@@ -84,6 +85,53 @@ async def list_by_company_page(
         )
     column = _SORTABLE_COLUMNS.get(sort_by, NationalOperation.created_at)
     stmt = stmt.order_by(column.asc() if sort_dir == "asc" else column.desc())
+    return await paginate(session, stmt, page, page_size)
+
+
+async def count_by_type_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict[str, int]:
+    """Pour le rapport journalier/mensuel : compte par type d'opération directement en SQL
+    (GROUP BY) au lieu de charger tout l'historique de l'entreprise puis compter en Python.
+    """
+    stmt = select(NationalOperation.type, func.count()).where(NationalOperation.company_id == company_id)
+    if start_date:
+        stmt = stmt.where(NationalOperation.created_at >= start_date)
+    if end_date:
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(NationalOperation.created_at <= end_dt)
+    stmt = stmt.group_by(NationalOperation.type)
+    result = await session.execute(stmt)
+    return {op_type.value: count for op_type, count in result.all()}
+
+
+async def list_by_company_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    only_cancelled: bool = False,
+) -> tuple[list[NationalOperation], int]:
+    """Variante de list_by_company_page pour les rapports : filtre par période directement en
+    SQL au lieu de charger tout l'historique de l'entreprise puis filtrer en Python.
+    """
+    stmt = select(NationalOperation).where(NationalOperation.company_id == company_id)
+    if only_cancelled:
+        stmt = stmt.where(NationalOperation.status == NationalOperationStatus.CANCELLED)
+        reference_date = func.coalesce(NationalOperation.cancelled_at, NationalOperation.created_at)
+    else:
+        reference_date = NationalOperation.created_at
+    if start_date:
+        stmt = stmt.where(reference_date >= start_date)
+    if end_date:
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(reference_date <= end_dt)
+    stmt = stmt.order_by(reference_date.desc())
     return await paginate(session, stmt, page, page_size)
 
 

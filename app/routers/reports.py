@@ -10,6 +10,7 @@ from app.core.rate_limit import limiter
 from app.core.permission_codes import PermissionCode
 from app.core.permissions import CurrentUser, get_company_scope, require_permission
 from app.schemas.dashboard import CollaboratorBalanceSummary, DailyReportResponse
+from app.schemas.pagination import Page
 from app.schemas.report import (
     ClientMovementReportRow,
     EmployeeActivityRow,
@@ -88,15 +89,20 @@ async def export_monthly_report_csv(
     return _csv_response(csv_content, f"rapport-mensuel-{report.month}.csv")
 
 
-@router.get("/transactions", response_model=list[TransactionReportRow])
+@router.get("/transactions", response_model=Page[TransactionReportRow])
 async def get_transactions_report(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[TransactionReportRow]:
-    return await report_service.build_transactions_report(db, company_id, date_from, date_to)
+) -> Page[TransactionReportRow]:
+    rows, total = await report_service.build_transactions_report(
+        db, company_id, date_from, date_to, page, page_size
+    )
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/transactions/export", response_class=PlainTextResponse)
@@ -109,7 +115,7 @@ async def export_transactions_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_transactions_report(db, company_id, date_from, date_to)
+    rows, _ = await report_service.build_transactions_report(db, company_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, TransactionReportRow)
     return _csv_response(csv_content, "rapport-transactions.csv")
 
@@ -136,16 +142,21 @@ async def export_collaborator_balances_report_csv(
     return _csv_response(csv_content, "rapport-soldes-collaborateurs.csv")
 
 
-@router.get("/wallets/{wallet_id}/history", response_model=list[WalletMovementReportRow])
+@router.get("/wallets/{wallet_id}/history", response_model=Page[WalletMovementReportRow])
 async def get_wallet_history_report(
     wallet_id: uuid.UUID,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[WalletMovementReportRow]:
-    return await report_service.build_wallet_history_report(db, company_id, wallet_id, date_from, date_to)
+) -> Page[WalletMovementReportRow]:
+    rows, total = await report_service.build_wallet_history_report(
+        db, company_id, wallet_id, date_from, date_to, page, page_size
+    )
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/wallets/{wallet_id}/history/export", response_class=PlainTextResponse)
@@ -159,21 +170,26 @@ async def export_wallet_history_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_wallet_history_report(db, company_id, wallet_id, date_from, date_to)
+    rows, _ = await report_service.build_wallet_history_report(db, company_id, wallet_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, WalletMovementReportRow)
     return _csv_response(csv_content, f"rapport-wallet-{wallet_id}.csv")
 
 
-@router.get("/employees/{user_id}/activity", response_model=list[EmployeeActivityRow])
+@router.get("/employees/{user_id}/activity", response_model=Page[EmployeeActivityRow])
 async def get_employee_activity_report(
     user_id: uuid.UUID,
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[EmployeeActivityRow]:
-    return await report_service.build_employee_activity_report(db, company_id, user_id, date_from, date_to)
+) -> Page[EmployeeActivityRow]:
+    rows, total = await report_service.build_employee_activity_report(
+        db, company_id, user_id, date_from, date_to, page, page_size
+    )
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/employees/{user_id}/activity/export", response_class=PlainTextResponse)
@@ -187,20 +203,23 @@ async def export_employee_activity_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_employee_activity_report(db, company_id, user_id, date_from, date_to)
+    rows, _ = await report_service.build_employee_activity_report(db, company_id, user_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, EmployeeActivityRow)
     return _csv_response(csv_content, f"rapport-employe-{user_id}.csv")
 
 
-@router.get("/suppliers", response_model=list[SupplierMovementReportRow])
+@router.get("/suppliers", response_model=Page[SupplierMovementReportRow])
 async def get_suppliers_report(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[SupplierMovementReportRow]:
-    return await report_service.build_supplier_report(db, company_id, date_from, date_to)
+) -> Page[SupplierMovementReportRow]:
+    rows, total = await report_service.build_supplier_report(db, company_id, date_from, date_to, page, page_size)
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/suppliers/export", response_class=PlainTextResponse)
@@ -213,20 +232,23 @@ async def export_suppliers_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_supplier_report(db, company_id, date_from, date_to)
+    rows, _ = await report_service.build_supplier_report(db, company_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, SupplierMovementReportRow)
     return _csv_response(csv_content, "rapport-fournisseurs.csv")
 
 
-@router.get("/clients", response_model=list[ClientMovementReportRow])
+@router.get("/clients", response_model=Page[ClientMovementReportRow])
 async def get_clients_report(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[ClientMovementReportRow]:
-    return await report_service.build_client_report(db, company_id, date_from, date_to)
+) -> Page[ClientMovementReportRow]:
+    rows, total = await report_service.build_client_report(db, company_id, date_from, date_to, page, page_size)
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/clients/export", response_class=PlainTextResponse)
@@ -239,20 +261,23 @@ async def export_clients_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_client_report(db, company_id, date_from, date_to)
+    rows, _ = await report_service.build_client_report(db, company_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, ClientMovementReportRow)
     return _csv_response(csv_content, "rapport-clients.csv")
 
 
-@router.get("/fees", response_model=list[FeeReportRow])
+@router.get("/fees", response_model=Page[FeeReportRow])
 async def get_fees_report(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[FeeReportRow]:
-    return await report_service.build_fees_report(db, company_id, date_from, date_to)
+) -> Page[FeeReportRow]:
+    rows, total = await report_service.build_fees_report(db, company_id, date_from, date_to, page, page_size)
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/fees/export", response_class=PlainTextResponse)
@@ -265,20 +290,25 @@ async def export_fees_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_fees_report(db, company_id, date_from, date_to)
+    rows, _ = await report_service.build_fees_report(db, company_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, FeeReportRow)
     return _csv_response(csv_content, "rapport-frais.csv")
 
 
-@router.get("/rejected-operations", response_model=list[RejectedOperationReportRow])
+@router.get("/rejected-operations", response_model=Page[RejectedOperationReportRow])
 async def get_rejected_operations_report(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_company_scope),
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_view),
-) -> list[RejectedOperationReportRow]:
-    return await report_service.build_rejected_operations_report(db, company_id, date_from, date_to)
+) -> Page[RejectedOperationReportRow]:
+    rows, total = await report_service.build_rejected_operations_report(
+        db, company_id, date_from, date_to, page, page_size
+    )
+    return Page(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/rejected-operations/export", response_class=PlainTextResponse)
@@ -291,6 +321,6 @@ async def export_rejected_operations_report_csv(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = Depends(_require_export),
 ) -> PlainTextResponse:
-    rows = await report_service.build_rejected_operations_report(db, company_id, date_from, date_to)
+    rows, _ = await report_service.build_rejected_operations_report(db, company_id, date_from, date_to)
     csv_content = report_service.rows_to_csv(rows, RejectedOperationReportRow)
     return _csv_response(csv_content, "rapport-operations-rejetees.csv")

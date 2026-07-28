@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from sqlalchemy import func, or_, select
@@ -83,6 +84,34 @@ async def list_movements(session: AsyncSession, client_id: uuid.UUID) -> list[Cl
         .order_by(ClientBalanceMovement.created_at)
     )
     return list(result.scalars().all())
+
+
+async def list_movements_for_company_in_period(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    page: int,
+    page_size: int,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[list[tuple[ClientBalanceMovement, str]], int]:
+    """Pour le rapport clients : une seule requête filtrée par company_id/période et paginée,
+    au lieu de boucler sur chaque client pour charger ses mouvements (N+1). ClientBalanceMovement
+    n'a pas de company_id propre : la portée entreprise passe par la jointure sur Client.
+    """
+    stmt = (
+        select(ClientBalanceMovement, Client.name)
+        .join(Client, Client.id == ClientBalanceMovement.client_id)
+        .where(Client.company_id == company_id)
+    )
+    if start_date:
+        stmt = stmt.where(ClientBalanceMovement.created_at >= start_date)
+    if end_date:
+        end_dt = datetime.combine(end_date, time.max)
+        stmt = stmt.where(ClientBalanceMovement.created_at <= end_dt)
+    stmt = stmt.order_by(ClientBalanceMovement.created_at.desc())
+    total = (await session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    result = await session.execute(stmt.offset((page - 1) * page_size).limit(page_size))
+    return list(result.all()), int(total)
 
 
 async def get_by_source(

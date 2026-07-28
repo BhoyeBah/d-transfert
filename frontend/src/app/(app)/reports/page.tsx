@@ -20,6 +20,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatTile } from "@/components/stat-tile";
+import { ReportPagination } from "@/components/data-table/report-pagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,11 @@ function ExportLink({ href }: { href: string }) {
   );
 }
 
+function toPage(value: string | undefined): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
 export default async function ReportsPage({
   searchParams,
 }: {
@@ -64,6 +70,13 @@ export default async function ReportsPage({
     date_to?: string;
     wallet_id?: string;
     employee_id?: string;
+    transactions_page?: string;
+    suppliers_page?: string;
+    clients_page?: string;
+    fees_page?: string;
+    rejected_operations_page?: string;
+    wallet_history_page?: string;
+    employee_activity_page?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -73,6 +86,14 @@ export default async function ReportsPage({
     .map(Number);
   const dateFrom = params.date_from;
   const dateTo = params.date_to;
+
+  const transactionsPage = toPage(params.transactions_page);
+  const suppliersPage = toPage(params.suppliers_page);
+  const clientsPage = toPage(params.clients_page);
+  const feesPage = toPage(params.fees_page);
+  const rejectedOperationsPage = toPage(params.rejected_operations_page);
+  const walletHistoryPage = toPage(params.wallet_history_page);
+  const employeeActivityPage = toPage(params.employee_activity_page);
 
   const [
     report,
@@ -90,12 +111,12 @@ export default async function ReportsPage({
     getDailyReport(params.date),
     getMonthlyReport(year, month),
     listAuditLogs(),
-    listTransactionsReport(dateFrom, dateTo),
+    listTransactionsReport(dateFrom, dateTo, transactionsPage),
     listCollaboratorBalancesReport(),
-    listSuppliersReport(dateFrom, dateTo),
-    listClientsReport(dateFrom, dateTo),
-    listFeesReport(dateFrom, dateTo),
-    listRejectedOperationsReport(dateFrom, dateTo),
+    listSuppliersReport(dateFrom, dateTo, suppliersPage),
+    listClientsReport(dateFrom, dateTo, clientsPage),
+    listFeesReport(dateFrom, dateTo, feesPage),
+    listRejectedOperationsReport(dateFrom, dateTo, rejectedOperationsPage),
     listWallets(),
     listEmployees(),
   ]);
@@ -103,11 +124,28 @@ export default async function ReportsPage({
   const walletId = params.wallet_id || wallets[0]?.id;
   const employeeId = params.employee_id || employees[0]?.id;
   const [walletHistory, employeeActivity] = await Promise.all([
-    walletId ? listWalletHistoryReport(walletId, dateFrom, dateTo) : Promise.resolve([]),
-    employeeId ? listEmployeeActivityReport(employeeId, dateFrom, dateTo) : Promise.resolve([]),
+    walletId
+      ? listWalletHistoryReport(walletId, dateFrom, dateTo, walletHistoryPage)
+      : Promise.resolve({ items: [], total: 0, page: 1, page_size: 20 }),
+    employeeId
+      ? listEmployeeActivityReport(employeeId, dateFrom, dateTo, employeeActivityPage)
+      : Promise.resolve({ items: [], total: 0, page: 1, page_size: 20 }),
   ]);
 
   const periodQuery = buildQuery({ date_from: dateFrom, date_to: dateTo });
+  const currentParams: Record<string, string | undefined> = {
+    date_from: dateFrom,
+    date_to: dateTo,
+    wallet_id: params.wallet_id,
+    employee_id: params.employee_id,
+    transactions_page: params.transactions_page,
+    suppliers_page: params.suppliers_page,
+    clients_page: params.clients_page,
+    fees_page: params.fees_page,
+    rejected_operations_page: params.rejected_operations_page,
+    wallet_history_page: params.wallet_history_page,
+    employee_activity_page: params.employee_activity_page,
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -210,33 +248,42 @@ export default async function ReportsPage({
           <ExportLink href={`/api/reports/transactions/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
-          {transactions.length === 0 ? (
+          {transactions.items.length === 0 ? (
             <EmptyState message="Aucune transaction sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Référence</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.slice(0, 50).map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="text-sm">{row.kind}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.reference}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {row.amount !== null ? formatMoney(row.amount, row.currency ?? undefined) : "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.status}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Référence</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {transactions.items.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="text-sm">{row.kind}</TableCell>
+                      <TableCell className="font-mono text-xs">{row.reference}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {row.amount !== null ? formatMoney(row.amount, row.currency ?? undefined) : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.status}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={transactionsPage}
+                pageSize={transactions.page_size}
+                total={transactions.total}
+                pageParam="transactions_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -300,33 +347,42 @@ export default async function ReportsPage({
           </div>
         </CardHeader>
         <CardContent>
-          {walletHistory.length === 0 ? (
+          {walletHistory.items.length === 0 ? (
             <EmptyState message="Aucun mouvement sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Sens</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                  <TableHead className="text-right">Solde après</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {walletHistory.slice(0, 50).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm">{row.direction === "in" ? "Entrée" : "Sortie"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(row.amount, row.currency)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(row.balance_after, row.currency)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.source_type}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sens</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead className="text-right">Solde après</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {walletHistory.items.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="text-sm">{row.direction === "in" ? "Entrée" : "Sortie"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatMoney(row.amount, row.currency)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatMoney(row.balance_after, row.currency)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.source_type}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={walletHistoryPage}
+                pageSize={walletHistory.page_size}
+                total={walletHistory.total}
+                pageParam="wallet_history_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -359,29 +415,38 @@ export default async function ReportsPage({
           </div>
         </CardHeader>
         <CardContent>
-          {employeeActivity.length === 0 ? (
+          {employeeActivity.items.length === 0 ? (
             <EmptyState message="Aucune activité sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Entité</TableHead>
-                  <TableHead>Note</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {employeeActivity.slice(0, 50).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-mono text-xs">{row.action}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.entity_type}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.note ?? "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Entité</TableHead>
+                    <TableHead>Note</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {employeeActivity.items.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="font-mono text-xs">{row.action}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.entity_type}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.note ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={employeeActivityPage}
+                pageSize={employeeActivity.page_size}
+                total={employeeActivity.total}
+                pageParam="employee_activity_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -392,29 +457,38 @@ export default async function ReportsPage({
           <ExportLink href={`/api/reports/suppliers/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
-          {suppliers.length === 0 ? (
+          {suppliers.items.length === 0 ? (
             <EmptyState message="Aucun mouvement fournisseur sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fournisseur</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {suppliers.slice(0, 50).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm">{row.supplier_name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.type}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(row.amount)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fournisseur</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {suppliers.items.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="text-sm">{row.supplier_name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.type}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatMoney(row.amount)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={suppliersPage}
+                pageSize={suppliers.page_size}
+                total={suppliers.total}
+                pageParam="suppliers_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -425,29 +499,38 @@ export default async function ReportsPage({
           <ExportLink href={`/api/reports/clients/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
-          {clients.length === 0 ? (
+          {clients.items.length === 0 ? (
             <EmptyState message="Aucun mouvement client sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead className="text-right">Variation</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clients.slice(0, 50).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-sm">{row.client_name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(row.delta)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.source_type}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead className="text-right">Variation</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {clients.items.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="text-sm">{row.client_name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatMoney(row.delta)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.source_type}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={clientsPage}
+                pageSize={clients.page_size}
+                total={clients.total}
+                pageParam="clients_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -458,27 +541,36 @@ export default async function ReportsPage({
           <ExportLink href={`/api/reports/fees/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
-          {fees.length === 0 ? (
+          {fees.items.length === 0 ? (
             <EmptyState message="Aucun frais conservé sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fees.slice(0, 50).map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="text-sm">{row.source_type}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(row.amount, row.currency)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {fees.items.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="text-sm">{row.source_type}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatMoney(row.amount, row.currency)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={feesPage}
+                pageSize={fees.page_size}
+                total={fees.total}
+                pageParam="fees_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -489,29 +581,38 @@ export default async function ReportsPage({
           <ExportLink href={`/api/reports/rejected-operations/export${periodQuery}`} />
         </CardHeader>
         <CardContent>
-          {rejectedOperations.length === 0 ? (
+          {rejectedOperations.items.length === 0 ? (
             <EmptyState message="Aucune opération rejetée ou annulée sur cette période." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Référence</TableHead>
-                  <TableHead>Motif</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rejectedOperations.slice(0, 50).map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="text-sm">{row.kind}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.reference}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.reason ?? "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Référence</TableHead>
+                    <TableHead>Motif</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rejectedOperations.items.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="text-sm">{row.kind}</TableCell>
+                      <TableCell className="font-mono text-xs">{row.reference}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.reason ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ReportPagination
+                page={rejectedOperationsPage}
+                pageSize={rejectedOperations.page_size}
+                total={rejectedOperations.total}
+                pageParam="rejected_operations_page"
+                currentParams={currentParams}
+              />
+            </>
           )}
         </CardContent>
       </Card>

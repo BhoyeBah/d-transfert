@@ -46,10 +46,6 @@ def _is_today(created_at: datetime) -> bool:
     return created_at.astimezone(timezone.utc).date() == datetime.now(timezone.utc).date()
 
 
-def _is_on_date(created_at: datetime, target_date) -> bool:
-    return created_at.astimezone(timezone.utc).date() == target_date
-
-
 def _hours_since(created_at: datetime) -> float:
     return (datetime.now(timezone.utc) - created_at.astimezone(timezone.utc)).total_seconds() / 3600
 
@@ -217,37 +213,36 @@ async def build_employee_dashboard(
 
 
 async def build_daily_report(session: AsyncSession, company_id: uuid.UUID, report_date) -> DailyReportResponse:
-    national_operations = await national_operation_repository.list_by_company(session, company_id)
-    day_operations = [op for op in national_operations if _is_on_date(op.created_at, report_date)]
-
-    entries = await entry_repository.list_by_company(session, company_id)
-    day_entries = [entry for entry in entries if _is_on_date(entry.created_at, report_date)]
-    entries_total_by_currency: dict[str, Decimal] = defaultdict(Decimal)
-    for entry in day_entries:
-        lines = await entry_repository.get_lines(session, entry.id)
-        for line in lines:
-            entries_total_by_currency[line.currency] += line.amount
-
-    transfers = await transfer_repository.list_for_company(session, company_id)
-    day_transfers = [t for t in transfers if _is_on_date(t.created_at, report_date)]
-
-    payments = await payment_repository.list_for_company(session, company_id)
-    day_payments = [p for p in payments if _is_on_date(p.created_at, report_date)]
+    # Agrégats calculés directement en SQL (COUNT/SUM/GROUP BY) plutôt qu'en chargeant tout
+    # l'historique de l'entreprise pour compter en Python — ne scale pas avec des années
+    # d'historique sinon.
+    operation_counts = await national_operation_repository.count_by_type_in_period(
+        session, company_id, report_date, report_date
+    )
+    entries_count, entries_total_by_currency = await entry_repository.aggregate_in_period(
+        session, company_id, report_date, report_date
+    )
+    transfer_counts = await transfer_repository.count_by_status_in_period(
+        session, company_id, report_date, report_date
+    )
+    payment_counts = await payment_repository.count_by_status_in_period(
+        session, company_id, report_date, report_date
+    )
 
     return DailyReportResponse(
         date=report_date.isoformat(),
-        deposits_count=sum(1 for op in day_operations if op.type == NationalOperationType.DEPOSIT),
-        withdrawals_count=sum(1 for op in day_operations if op.type == NationalOperationType.WITHDRAWAL),
-        exchanges_count=sum(1 for op in day_operations if op.type == NationalOperationType.EXCHANGE),
-        rebalances_count=sum(1 for op in day_operations if op.type == NationalOperationType.REBALANCE),
-        entries_count=len(day_entries),
-        entries_total_by_currency=dict(entries_total_by_currency),
-        transfers_created_count=len(day_transfers),
-        transfers_approved_count=sum(1 for t in day_transfers if t.status == TransferStatus.APPROVED),
-        transfers_rejected_count=sum(1 for t in day_transfers if t.status == TransferStatus.REJECTED),
-        payments_created_count=len(day_payments),
-        payments_approved_count=sum(1 for p in day_payments if p.status == PaymentStatus.APPROVED),
-        payments_rejected_count=sum(1 for p in day_payments if p.status == PaymentStatus.REJECTED),
+        deposits_count=operation_counts.get(NationalOperationType.DEPOSIT.value, 0),
+        withdrawals_count=operation_counts.get(NationalOperationType.WITHDRAWAL.value, 0),
+        exchanges_count=operation_counts.get(NationalOperationType.EXCHANGE.value, 0),
+        rebalances_count=operation_counts.get(NationalOperationType.REBALANCE.value, 0),
+        entries_count=entries_count,
+        entries_total_by_currency=entries_total_by_currency,
+        transfers_created_count=sum(transfer_counts.values()),
+        transfers_approved_count=transfer_counts.get(TransferStatus.APPROVED.value, 0),
+        transfers_rejected_count=transfer_counts.get(TransferStatus.REJECTED.value, 0),
+        payments_created_count=sum(payment_counts.values()),
+        payments_approved_count=payment_counts.get(PaymentStatus.APPROVED.value, 0),
+        payments_rejected_count=payment_counts.get(PaymentStatus.REJECTED.value, 0),
     )
 
 
