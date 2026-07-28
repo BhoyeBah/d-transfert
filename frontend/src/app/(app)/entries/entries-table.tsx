@@ -12,7 +12,16 @@ import type { SortDir } from "@/lib/data-table";
 import type { Entry, Wallet } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SortableHeader } from "@/components/data-table/sortable-header";
 import {
   Table,
@@ -61,6 +70,7 @@ export function EntriesTable({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [mergeClientName, setMergeClientName] = useState("");
   const [mergeClientPhone, setMergeClientPhone] = useState("");
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const selectedEntries = entries.filter((entry) => selected.has(entry.id));
@@ -83,11 +93,19 @@ export function EntriesTable({
     });
   }
 
-  function merge() {
+  function requestMerge() {
     if (!sameClientSelection) {
       toast.error("Sélectionne uniquement des entrées du même client pour fusionner.");
       return;
     }
+    if (selectionIsAnonymous) {
+      setMergeDialogOpen(true);
+      return;
+    }
+    merge();
+  }
+
+  function merge() {
     startTransition(async () => {
       const result = await mergeEntriesAction([...selected], {
         client_name: mergeClientName.trim() || undefined,
@@ -101,6 +119,7 @@ export function EntriesTable({
       setSelected(new Set());
       setMergeClientName("");
       setMergeClientPhone("");
+      setMergeDialogOpen(false);
       router.refresh();
     });
   }
@@ -108,38 +127,57 @@ export function EntriesTable({
   return (
     <div className="flex flex-col gap-3">
       {selected.size >= 2 && (
-        <div className="flex flex-col gap-3 rounded-md border border-border bg-card px-3 py-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm">
-              <div>{selected.size} entrées sélectionnées</div>
-              {!sameClientSelection && (
-                <div className="text-xs text-warning">
-                  La fusion est prévue pour des entrées du même client.
-                </div>
-              )}
-            </div>
-            <Button size="sm" onClick={merge} disabled={isPending || !sameClientSelection}>
-              {isPending ? "Fusion..." : "Fusionner"}
-            </Button>
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm">
+            <div>{selected.size} entrées sélectionnées</div>
+            {!sameClientSelection && (
+              <div className="text-xs text-warning">
+                La fusion est prévue pour des entrées du même client.
+              </div>
+            )}
           </div>
-          {selectionIsAnonymous && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                placeholder="Client (optionnel)"
-                value={mergeClientName}
-                onChange={(e) => setMergeClientName(e.target.value)}
-                aria-label="Nom du client à associer à la fusion"
-              />
-              <Input
-                placeholder="Téléphone client (optionnel)"
-                value={mergeClientPhone}
-                onChange={(e) => setMergeClientPhone(e.target.value)}
-                aria-label="Téléphone du client à associer à la fusion"
-              />
-            </div>
-          )}
+          <Button size="sm" onClick={requestMerge} disabled={isPending || !sameClientSelection}>
+            {isPending ? "Fusion..." : "Fusionner"}
+          </Button>
         </div>
       )}
+      <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fusionner {selected.size} entrées</DialogTitle>
+            <DialogDescription>
+              Ces entrées n&apos;ont pas de client renseigné. Tu peux en associer un à l&apos;entrée fusionnée,
+              ou laisser vide pour garder la fusion anonyme.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="merge_client_name">Client (optionnel)</Label>
+              <Input
+                id="merge_client_name"
+                value={mergeClientName}
+                onChange={(e) => setMergeClientName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="merge_client_phone">Téléphone client (optionnel)</Label>
+              <Input
+                id="merge_client_phone"
+                value={mergeClientPhone}
+                onChange={(e) => setMergeClientPhone(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeDialogOpen(false)} disabled={isPending}>
+              Annuler
+            </Button>
+            <Button onClick={merge} disabled={isPending}>
+              {isPending ? "Fusion..." : "Fusionner"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Table>
         <TableHeader>
           <TableRow>
