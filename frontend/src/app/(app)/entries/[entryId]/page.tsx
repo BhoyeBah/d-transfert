@@ -35,6 +35,10 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
     getMe(),
   ]);
   const walletNameById = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
+  const referenceById = new Map(allEntries.map((candidate) => [candidate.id, candidate.reference]));
+  const mergedIntoReference = entry.merged_into_id
+    ? (referenceById.get(entry.merged_into_id) ?? entry.merged_into_id.slice(0, 8))
+    : null;
   const canViewWallets = hasPermission(
     me.permissions,
     me.is_owner,
@@ -71,14 +75,22 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={entry.status} />
+            <StatusBadge status={entry.merged_into_id ? "merged" : entry.status} />
             {CANCELLABLE_STATUSES.has(entry.status) && !entry.merged_into_id && (
               <CancelEntryButton entryId={entry.id} />
             )}
           </div>
         </div>
 
-        {entry.status === "consumed" ? (
+        {entry.merged_into_id ? (
+          <p className="text-sm text-muted-foreground">
+            Entrée fusionnée dans{" "}
+            <Link href={`/entries/${entry.merged_into_id}`} className="font-medium hover:underline">
+              {mergedIntoReference}
+            </Link>{" "}
+            — aucune action possible.
+          </p>
+        ) : entry.status === "consumed" ? (
           <p className="text-sm text-muted-foreground">
             Entrée entièrement consommée — archivée, aucune action possible.
           </p>
@@ -148,7 +160,15 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ en
             <CardTitle>Disponible</CardTitle>
           </CardHeader>
           <CardContent>
-            {Object.entries(entry.available_by_currency).length === 0 ? (
+            {entry.merged_into_id ? (
+              <p className="text-sm text-muted-foreground">
+                Reliquat reporté dans{" "}
+                <Link href={`/entries/${entry.merged_into_id}`} className="hover:underline">
+                  {mergedIntoReference}
+                </Link>
+                .
+              </p>
+            ) : Object.entries(entry.available_by_currency).length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun montant disponible.</p>
             ) : (
               <div className="flex flex-col gap-2">

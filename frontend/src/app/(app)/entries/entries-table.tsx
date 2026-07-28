@@ -57,6 +57,7 @@ export function EntriesTable({
   search?: string;
 }) {
   const walletNameById = new Map(wallets.map((wallet) => [wallet.id, wallet.name]));
+  const referenceById = new Map(entries.map((entry) => [entry.id, entry.reference]));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [mergeClientName, setMergeClientName] = useState("");
   const [mergeClientPhone, setMergeClientPhone] = useState("");
@@ -170,7 +171,11 @@ export function EntriesTable({
                 </Link>
               </TableCell>
               <TableCell>
-                <StatusBadge status={entry.status} />
+                {entry.merged_into_id ? (
+                  <StatusBadge status="merged" />
+                ) : (
+                  <StatusBadge status={entry.status} />
+                )}
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
                 {entry.client_name ? (
@@ -183,7 +188,18 @@ export function EntriesTable({
                 )}
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{walletsSummary(entry, walletNameById)}</TableCell>
-              <TableCell className="text-right tabular-nums">{availableSummary(entry)}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {entry.merged_into_id ? (
+                  <span className="text-xs text-muted-foreground">
+                    Fusionnée dans{" "}
+                    <Link href={`/entries/${entry.merged_into_id}`} className="hover:underline">
+                      {referenceById.get(entry.merged_into_id) ?? entry.merged_into_id.slice(0, 8)}
+                    </Link>
+                  </span>
+                ) : (
+                  availableSummary(entry)
+                )}
+              </TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
               <TableCell>
                 <div className="flex justify-end gap-2">
@@ -193,7 +209,7 @@ export function EntriesTable({
                       Voir
                     </Link>
                   </Button>
-                  {entry.status !== "consumed" && (
+                  {entry.status !== "consumed" && !entry.merged_into_id && (
                     <>
                       <Button asChild size="sm" variant="outline">
                         <Link href={`/transfers?entry=${entry.id}`}>

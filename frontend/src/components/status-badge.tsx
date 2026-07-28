@@ -16,6 +16,7 @@ const STATUS_CONFIG: Record<string, { label: string; variant: Variant }> = {
   partially_allocated: { label: "Partiellement affectée", variant: "warning" },
   allocated: { label: "Affectée", variant: "secondary" },
   consumed: { label: "Consommée", variant: "secondary" },
+  merged: { label: "Fusionnée", variant: "secondary" },
   rejected: { label: "Rejetée", variant: "destructive" },
   // transfers / payments
   pending: { label: "En attente", variant: "pending" },
